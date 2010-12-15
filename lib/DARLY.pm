@@ -5,6 +5,9 @@ our $VERSION = '0.00';
 use strict;
 use warnings;
 
+require DARLY::kernel;
+require DARLY::actor;
+
 sub import {
     my $caller = (caller)[0];
     return if $caller =~ /^DARLY/;
@@ -13,8 +16,8 @@ sub import {
     no strict 'refs';
     
     push @{"$caller\::ISA"}, 'DARLY::actor';
-    *{"${caller}::topic"} = *topic;
-    *{"${caller}::event"} = *event;
+    *{"$caller\::topic"} = *topic;
+    *{"$caller\::event"} = *event;
 }
 
 sub topic($) {

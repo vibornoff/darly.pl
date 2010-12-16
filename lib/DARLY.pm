@@ -7,6 +7,7 @@ use warnings;
 
 require DARLY::kernel;
 require DARLY::actor;
+require DARLY::future;
 
 sub import {
     my $caller = (caller)[0];
@@ -18,13 +19,14 @@ sub import {
     push @{"$caller\::ISA"}, 'DARLY::actor';
     *{"$caller\::topic"} = *topic;
     *{"$caller\::event"} = *event;
+    *{"$caller\::future"} = *future;
 }
 
-sub topic($) {
-}
+sub topic($)    { }
+sub event($;&)  { }
+sub future(&)   { goto \&DARLY::future::new }
 
-sub event($;&) {
-}
+*loop = *{DARLY::kernel::loop};
 
 1;
 
@@ -79,6 +81,23 @@ DARLY - Distributed Actor Runtime Library
  DARLY::loop(); # or AE::cv->recv();
 
 =head1 DESCRIPTION
+
+=head2 event
+
+=head2 topic
+
+=head2 future
+
+ event 'delayed_echo' => sub {
+    my ($actor, $delay, $message) = @_;
+    my ($t,$f); $t = AE::timer $delay, 0, $f = future { $t = undef; return $message };
+    return $f;
+ }
+
+ $actor->request(
+    'delayed_echo', [ 3, 'hello!' ]
+        => sub { say "Got $_[-1]" }
+ );
 
 =head1 AUTHOR
 

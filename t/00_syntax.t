@@ -9,6 +9,7 @@ use Test::More;
 use_ok('DARLY');
 use_ok('DARLY::kernel');
 use_ok('DARLY::actor');
+use_ok('DARLY::future');
 
 my $testvar;
 {
@@ -26,6 +27,7 @@ ok( Syntax->meta(), "get meta" );
 my $anonymous = Syntax->spawn();
 ok( $anonymous, "Spawn anonymous actor" );
 ok( $anonymous->alias('anonymous'), "Alias actor" );
+undef $anonymous;
 
 my $aliased = Syntax->spawn('aliased');
 ok( $aliased, "Spawn aliased actor" );
@@ -35,5 +37,9 @@ ok( $testvar eq 'blah', "\$testvar got right value" );
 
 ok( $aliased->request( 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
 ok( $testvar eq 'damn', "\$testvar got right value" );
+
+ok( $aliased->shutdown(), "Shutdown actor" );
+
+DARLY::loop();
 
 done_testing();

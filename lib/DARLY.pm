@@ -14,7 +14,7 @@ sub import {
     return if $caller->isa('DARLY::actor');
 
     no strict 'refs';
-    
+
     push @{"$caller\::ISA"}, 'DARLY::actor';
     *{"$caller\::topic"} = *topic;
     *{"$caller\::event"} = *event;
@@ -23,7 +23,7 @@ sub import {
 sub topic($) {
 }
 
-sub event($&) {
+sub event($;&) {
 }
 
 1;
@@ -49,8 +49,8 @@ DARLY - Distributed Actor Runtime Library
  };
  
  event 'get_history' => sub {
-    my $chat = shift;
-    return $chat->{entries} || [];
+    my ($chat,$lines) = @_;
+    return [ @{$chat->{entries}}[ -$lines .. -1 ] ];
  };
  
  INIT {
@@ -62,9 +62,9 @@ DARLY - Distributed Actor Runtime Library
  use AnyEvent;
  
  my $client = MyChatServer->reference('Server#1');
- $client->request( 'get_history' => sub {
+ $client->request( 'get_history', [ 10 ] => sub {
     my ($client,$entries) = @_;
-    printf( "%s, %s: %s\n", @{$_} ) for @$entries;
+    printf( "%s, %s: %s\n", @$_ ) for @$entries;
     $client->subscribe( 'history' => sub {
         my ($client,$entry) = @_;
         printf "%s, %s: %s\n", @$entry;

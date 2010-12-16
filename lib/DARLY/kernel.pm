@@ -25,3 +25,13 @@ sub shutdown_actor {
 }
 
 1;
+
+__END__
+
+Meta ::= { Package -> ( Package, EVENTS{ event -> code }, TOPICS{ topic -> 1 } ) }
+
+Actor ::= { refaddr<Obj> -> ( Meta, Obj, Addr, SUBS{ topic -> { refaddr<code> -> code } } ) }
+
+Node ::= { Addr -> refaddr<Handle> }
+
+Handle ::= { refaddr<Handle> -> ? }

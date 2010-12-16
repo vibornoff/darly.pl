@@ -54,7 +54,7 @@ DARLY - Distributed Actor Runtime Library
  };
  
  INIT {
-    MyChatServer->new->alias('Server#1');
+    MyChatServer->spawn('Server#1');
  };
 
  package main;

@@ -22,8 +22,6 @@ my $testvar;
     };
 }
 
-ok( Syntax->meta(), "get meta" );
-
 my $anonymous = Syntax->spawn();
 ok( $anonymous, "Spawn anonymous actor" );
 ok( $anonymous->alias('anonymous'), "Alias actor" );

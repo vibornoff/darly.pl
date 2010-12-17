@@ -3,6 +3,7 @@ use inc::Module::Install;
 name            'DARLY';
 all_from        'lib/DARLY.pm';
 
+requires        'Carp';
 requires        'AnyEvent';
 
 test_requires   'lib::abs';

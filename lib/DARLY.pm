@@ -12,18 +12,20 @@ require DARLY::future;
 sub import {
     my $caller = (caller)[0];
     return if $caller =~ /^DARLY/;
-    return if $caller->isa('DARLY::actor');
 
     no strict 'refs';
-
-    push @{"$caller\::ISA"}, 'DARLY::actor';
     *{"$caller\::topic"} = *topic;
     *{"$caller\::event"} = *event;
     *{"$caller\::future"} = *future;
+
+    push @{"$caller\::ISA"}, 'DARLY::actor'
+        if !$caller->isa('DARLY::actor');
+
+    DARLY::kernel::meta_extend($caller);
 }
 
 sub topic($)    { }
-sub event($;&)  { }
+sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { goto \&DARLY::future::new }
 
 *loop = *{DARLY::kernel::loop};

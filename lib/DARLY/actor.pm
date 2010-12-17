@@ -1,38 +1,50 @@
 package DARLY::actor;
 
+use Carp;
+
 use strict;
 use warnings;
 
 require DARLY::kernel;
+
+BEGIN {
+    DARLY::kernel::meta_event( __PACKAGE__, 'default' );
+    DARLY::kernel::meta_event( __PACKAGE__, 'error' );
+    DARLY::kernel::meta_extend( __PACKAGE__, __PACKAGE__ );
+}
+
+sub new {
+    my $class = shift; $class = ref $class || $class;
+    return bless { @_ }, $class;
+}
 
 sub DESTROY {
     my $self = shift;
     $self->shutdown();
 }
 
-sub meta {
-    my $self = shift;
-    warn "TODO implement DARLY::actor::meta() method";
-}
-
 sub spawn {
     my ($self,$alias) = @_;
-    warn "TODO implement DARLY::actor::spawn() method";
-    DARLY::kernel::spawn_actor($self);
+    $self = $self->new( @_[2..$#_] ) unless ref $self;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+    croak "Alias '$alias' is empty" if defined $alias && !length $alias;
+    DARLY::kernel::actor_spawn(ref $self, $self, undef);
+    DARLY::kernel::actor_alias($self, $alias ? $alias : () );
     return $self;
 }
 
 sub shutdown {
     my $self = shift;
     warn "TODO implement DARLY::actor::shutdown() method";
-    DARLY::kernel::shutdown_actor($self);
+    DARLY::kernel::actor_shutdown($self);
     return;
 }
 
 sub alias {
     my ($self,$alias) = @_;
-    warn "TODO implement DARLY::actor::alias() method";
-    return $self;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+    croak "Alias '$alias' is empty" if defined $alias && !length $alias;
+    return DARLY::kernel::actor_alias(@_);
 }
 
 sub reference {

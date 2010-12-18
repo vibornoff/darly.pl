@@ -29,13 +29,13 @@ sub spawn {
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Alias '$alias' is empty" if defined $alias && !length $alias;
     DARLY::kernel::actor_spawn(ref $self, $self, undef);
-    DARLY::kernel::actor_alias($self, $alias ? $alias : () );
+    DARLY::kernel::actor_alias($self, $alias) if $alias;
     return $self;
 }
 
 sub shutdown {
     my $self = shift;
-    warn "TODO implement DARLY::actor::shutdown() method";
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     DARLY::kernel::actor_shutdown($self);
     return;
 }

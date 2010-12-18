@@ -25,7 +25,8 @@ my $testvar;
 my $anonymous = Syntax->spawn();
 ok( $anonymous, "Spawn anonymous actor" );
 ok( $anonymous->alias('anonymous'), "Alias actor" );
-undef $anonymous;
+ok( $anonymous->alias(undef), "Unalias actor" );
+ok( $anonymous = 1, "Dereference actor" );
 
 my $aliased = Syntax->spawn('aliased');
 ok( $aliased, "Spawn aliased actor" );
@@ -36,8 +37,8 @@ ok( $testvar eq 'blah', "\$testvar got right value" );
 ok( $aliased->request( 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
 ok( $testvar eq 'damn', "\$testvar got right value" );
 
-ok( $aliased->shutdown(), "Shutdown actor" );
+ok( $aliased->shutdown() || 1, "Shutdown actor" );
 
-DARLY::loop();
+DARLY::run();
 
 done_testing();

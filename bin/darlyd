@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+use lib::abs qw( ../lib );
+
+use Getopt::Std;
+require DARLY;
+
+use strict;
+use warnings;
+
+our $VERSION = ${DARLY::VERSION};
+
+my %opts;
+${Getopt::Std::STANDARD_HELP_VERSION} = 1;
+getopts( 'p:b:' => \%opts );
+
+$opts{'port'} = delete $opts{p} if $opts{p};
+$opts{'bind'} = delete $opts{b} if $opts{b};
+
+DARLY::run(%opts);
+
+exit 0;
+
+__END__
+
+=head1 NAME
+
+darlyd - DARLY node daemon
+
+=head1 SYNOPSIS
+
+ darlyd [-b=<addr>] [-p=<port>]
+   -p     Specify port to listen to (defaults to 12345)
+   -b     Bind to the specified address (defaults to multihomed listening)
+
+=head1 DESCRIPTIION
+
+=head1 AUTHOR
+
+Artem S Vybornov <vybornov@gmail.com>
+
+=cut

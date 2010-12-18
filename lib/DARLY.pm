@@ -28,7 +28,7 @@ sub topic($)    { }
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { goto \&DARLY::future::new }
 
-*loop = *{DARLY::kernel::loop};
+*run = *{DARLY::kernel::run};
 
 1;
 

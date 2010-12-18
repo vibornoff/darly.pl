@@ -1,44 +1,81 @@
 package DARLY::kernel;
 
 use Carp;
+use Readonly;
+use URI;
 use AnyEvent;
+use AnyEvent::Handle;
+use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr weaken );
 use List::Util qw( first );
 
 use strict;
 use warnings;
 
+# Turn debug tracing on/off
+use constant DEBUG => 1;
+
 # Actor class meta
 my %META;
 # Meta members
-use constant CLASS      => 0;
-use constant EVENT      => 1;
-#use constant TOPIC      => 2;
+use constant CLASS  => 0;
+use constant EVENT  => 1;
+#use constant TOPIC  => 2;
 
 # Actors and aliases
 my (%ACTOR,%ALIAS);
 # Actor members
-use constant META       => 0;
-use constant OBJECT     => 1;
-use constant URL        => 2;
-use constant ALIAS      => 3;
-#use constant SUBS       => 4;
+use constant META   => 0;
+use constant URL    => 1;
+use constant OBJECT => 2;
+use constant ALIAS  => 3;
+#use constant SUBS   => 4;
 
-# Connected nodes
-my %NODE;
+# Active handles and connected nodes
+my (%HANDLE,%NODE);
+use constant HANDLE => 0;
+#use constant URL    => 1; #already defined
 
-# Open handles
-my %HANDLE;
-
-my $loop;
-INIT {
-    $loop = AE::cv();
-    $loop->begin();
+# Kernel stuff
+Readonly our $KERNEL_ID     => 0;
+Readonly our $DEFAULT_PORT  => 12345;
+Readonly our $MAX_MSG_SIZE  => 65536;   # 64 KiB
+Readonly our $MAX_BUF_SIZE  => 1**20;   # 1 MiB
+my $KERNEL;
+BEGIN {
+    $KERNEL->{loop} = AE::cv();
 }
 
-sub loop {
-    $loop->end();
-    $loop->recv();
+sub run {
+    my %opts = @_;
+
+    # Kernel options
+    #$opts{'tracker'} ||= undef;
+    $opts{'bind'}   ||= undef;
+    $opts{'port'}   ||= $DEFAULT_PORT;
+
+    # Register kernel Actor
+    my $KERNEL_CLASS = __PACKAGE__;
+    $ACTOR{$KERNEL_ID} = [ $KERNEL_CLASS, $KERNEL, undef, undef ];
+    $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
+
+    # Start listenting
+    $KERNEL->{server} = tcp_server( $opts{'bind'}, $opts{'port'} => \&node_connect );
+
+    # Connect tracker if need
+    #if ( $opts{tracker} ) {
+    #    my ($h,$p) = parse_hostport( $opts{tracker}, $DEFAULT_PORT );
+    #    $kernel->{tracker} = tcp_connect( $h, $p => \&_tracker_connect );
+    #}
+
+    DEBUG && warn "Run kernel event loop";
+    $KERNEL->{loop}->begin();
+    $KERNEL->{loop}->recv();
+}
+
+sub shutdown {
+    DEBUG && warn "Shutdown kernel event loop";
+    $KERNEL->{loop}->end();
 }
 
 sub meta_extend {
@@ -73,25 +110,29 @@ sub meta_topic {
 sub actor_spawn {
     my ($class, $obj, $url) = @_;
 
-    my $actor = [ $META{$class}, $obj, $url, undef ];
+    my $actor = [ $META{$class}, $url, $obj, undef ];
     $ACTOR{refaddr $obj} = $actor;
     weaken $actor->[OBJECT] if ref $obj;
 
-    $loop->begin();
+    DEBUG && warn "Spawn new actor $obj";
+    $KERNEL->{loop}->begin();
 }
 
 sub actor_alias {
     my ($obj, $alias) = @_;
+
     my $actor = $ACTOR{refaddr $obj};
     return if !defined $actor;
 
     if ( @_ > 1 ) {
         if ( defined $alias ) {
             $ALIAS{$alias}{refaddr $obj} = $obj;
-        } else {
+        }
+        elsif ( $alias = $actor->[ALIAS] ) {
             delete $ALIAS{$alias}{refaddr $obj};
             delete $ALIAS{$alias} if !keys %{$ALIAS{$alias}};
         }
+        $actor->[ALIAS] = $alias;
         # TODO Update upstream;
     }
 
@@ -99,7 +140,60 @@ sub actor_alias {
 }
 
 sub actor_shutdown {
-    $loop->end();
+    my $obj = shift;
+
+    my $actor = delete $ACTOR{refaddr $obj};
+    return if !defined $actor;
+
+    if ( my $alias = $actor->[ALIAS] ) {
+        delete $ALIAS{$alias}{refaddr $obj};
+        delete $ALIAS{$alias} if !keys %{$ALIAS{$alias}};
+        # TODO Update upstream;
+    }
+
+    $KERNEL->{loop}->end();
+}
+
+sub node_connect {
+    my ($handle, $addr, $port) = @_;
+
+    $handle = AnyEvent::Handle->new(
+        fh => $handle,
+        on_error => \&node_disconnect,
+        on_eof  => \&node_disconnect,
+        on_read => \&node_read,
+    );
+
+    my $url = URI->new("darly://$addr:$port/");
+    $NODE{$url}{refaddr $handle} =
+    $HANDLE{refaddr $handle} =
+        [ $handle, $url ];
+
+    DEBUG && warn "Node $url connected";
+}
+
+sub node_disconnect {
+    my ($handle, $fatal, $message) = @_;
+
+    my $entry = delete $HANDLE{refaddr $handle};
+    return unless defined $entry;
+
+    my $url = $entry->[URL];
+    delete $NODE{$url}{refaddr $handle};
+    delete $NODE{$url} if !keys %{$NODE{$url}};
+
+    $handle->destroy();
+
+    DEBUG && warn "Node $url disconnected";
+}
+
+sub node_read {
+    my $handle = shift;
+
+    if ( length $handle->rbuf > $MAX_BUF_SIZE ) {
+        DEBUG && warn "Read buffer overflow on handle $handle";
+        node_disconnect($handle);
+    }
 }
 
 1;
@@ -112,7 +206,7 @@ Actor ::= { refaddr<Obj> -> ( Meta, Obj, Addr, SUBS{ topic -> { refaddr<code> ->
 
 Alias ::= { alias -> { refaddr<Obj> -> Obj } }
 
-Node ::= { Addr -> refaddr<Handle> }
+Node ::= { Addr -> { refaddr<Handle> } }
 
 Handle ::= { refaddr<Handle> -> ? }
 

@@ -39,6 +39,14 @@ ok( $testvar eq 'damn', "\$testvar got right value" );
 
 ok( $aliased->shutdown() || 1, "Shutdown actor" );
 
+
+my $f;
+{
+    use DARLY;
+    $f = future { 1 };
+}
+ok ( $f, "Create future object" );
+
 DARLY::run();
 
 done_testing();

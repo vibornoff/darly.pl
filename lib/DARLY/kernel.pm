@@ -33,6 +33,7 @@ use constant ALIAS  => 3;
 
 # Active handles and connected nodes
 my (%HANDLE,%NODE);
+# Handle struct members
 use constant HANDLE => 0;
 #use constant URL    => 1; #already defined
 

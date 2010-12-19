@@ -14,7 +14,7 @@ sub import {
     return if $caller =~ /^DARLY/;
 
     no strict 'refs';
-    *{"$caller\::topic"} = *topic;
+    #*{"$caller\::topic"} = *topic;
     *{"$caller\::event"} = *event;
     *{"$caller\::future"} = *future;
 
@@ -24,7 +24,7 @@ sub import {
     DARLY::kernel::meta_extend($caller);
 }
 
-sub topic($)    { }
+#sub topic($)    { }
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { goto \&DARLY::future::new }
 

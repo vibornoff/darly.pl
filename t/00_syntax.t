@@ -24,9 +24,9 @@ my $testvar;
 
 my $anonymous = Syntax->spawn();
 ok( $anonymous, "Spawn anonymous actor" );
-ok( $anonymous->alias('anonymous'), "Alias actor" );
-ok( $anonymous->alias(undef), "Unalias actor" );
-ok( $anonymous = 1, "Dereference actor" );
+ok( $anonymous->alias('anonymous'), "Alias anonymous actor" );
+ok( $anonymous->alias(undef), "Unalias anonymous actor" );
+ok( $anonymous = 1, "Dereference anonymous actor" );
 
 my $aliased = Syntax->spawn('aliased');
 ok( $aliased, "Spawn aliased actor" );

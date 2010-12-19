@@ -53,14 +53,17 @@ sub reference {
 
 sub send {
     my ($self,$event,$args) = @_;
-    warn "TODO implement DARLY::actor::send() method";
-    return $self;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+    croak "Event required" if !defined $event || !length $event;
+    return DARLY::kernel::send(@_);
 }
 
 sub request {
-    my ($self,$event,$args,$responder) = @_;
-    warn "TODO implement DARLY::actor::request() method";
-    return $self;
+    my ($self,$event,$args,$cb) = @_;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+    croak "Event required" if !defined $event || !length $event;
+    croak "Callback required" if !defined $cb || ( ref $cb ne 'CODE' && !$cb->isa('DARLY::actor') );
+    return DARLY::kernel::request(@_);
 }
 
 =pod

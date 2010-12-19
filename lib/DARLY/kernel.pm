@@ -77,6 +77,12 @@ sub run {
 sub shutdown {
     DEBUG && warn "Shutdown kernel event loop";
     $KERNEL->{loop}->end();
+sub send {
+    my ($obj, $event, $args) = @_;
+}
+
+sub request {
+    my ($obj, $event, $args, $code) = @_;
 }
 
 sub meta_extend {

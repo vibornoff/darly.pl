@@ -6,7 +6,7 @@ use URI;
 use AnyEvent;
 use AnyEvent::Handle;
 use AnyEvent::Socket;
-use Scalar::Util qw( blessed refaddr weaken );
+use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
 
 use strict;
@@ -84,16 +84,29 @@ sub shutdown {
 }
 
 sub dispatch {
-    my ($obj, $event, $args) = @_;
+    my ($actor, $event, $args) = @_;
+    my $code = $actor->[META][EVENT]{$event};
+    return if !defined $code || reftype $code ne 'CODE';
+    return $code->( defined $args ? @$args : () );
 }
 
 sub send {
-    my ($obj, $event, $args) = @_;
+    my ($actor, $event, $args) = @_;
+    if ( $actor->[URL] ) {
+        # TODO forward message to another node
+    } else {
+        dispatch( $actor, $event, $args );
+    }
     return '0 but true';
 }
 
 sub request {
-    my ($obj, $event, $args, $code) = @_;
+    my ($actor, $event, $args, $code) = @_;
+    if ( $actor->[URL] ) {
+        # TODO forward request to another node
+    } else {
+        $code->( dispatch( $actor, $event, $args ) );
+    }
     return '0 but true';
 }
 
@@ -137,6 +150,12 @@ sub actor_spawn {
     $KERNEL->{loop}->begin();
 
     return '0 but true';
+}
+
+sub actor_get {
+    my $obj = shift;
+    my $actor = $ACTOR{refaddr $obj};
+    return $actor;
 }
 
 sub actor_alias {
@@ -234,7 +253,8 @@ sub node_read {
         my $actor = $ACTOR{$id};
         return unless defined $actor;
 
-        my $result = eval { dispatch( $actor->[OBJECT], $event, $args ) };
+        $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+        my $result = eval { dispatch( $actor, $event, $args ) };
         if ( defined $responder ) {
             if ( $@ ) {
                 # TODO send error message

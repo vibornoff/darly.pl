@@ -1,6 +1,7 @@
 package DARLY::actor;
 
 use Carp;
+use Scalar::Util qw( reftype );
 
 use strict;
 use warnings;
@@ -55,7 +56,9 @@ sub send {
     my ($self,$event,$args) = @_;
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
-    return DARLY::kernel::send(@_);
+    my $actor = DARLY::kernel::actor_get($self) or return;
+    $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+    return DARLY::kernel::send($actor,$event,$args);
 }
 
 sub request {
@@ -63,7 +66,9 @@ sub request {
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
     croak "Callback required" if !defined $cb || ( ref $cb ne 'CODE' && !$cb->isa('DARLY::actor') );
-    return DARLY::kernel::request(@_);
+    my $actor = DARLY::kernel::actor_get($self) or return;
+    $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+    return DARLY::kernel::request($actor,$event,$args,$cb);
 }
 
 =pod

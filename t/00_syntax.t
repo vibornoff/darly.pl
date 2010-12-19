@@ -16,7 +16,7 @@ my $testvar;
     package Syntax;
     use DARLY;
 
-    topic 'foo';
+#    topic 'foo';
     event 'bar' => sub {
         return $testvar = $_[-1];
     };

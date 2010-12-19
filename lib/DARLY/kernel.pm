@@ -36,6 +36,8 @@ my (%HANDLE,%NODE);
 # Handle struct members
 use constant HANDLE => 0;
 #use constant URL    => 1; #already defined
+use constant NIN    => 2;
+use constant NOUT   => 3;
 
 # Kernel stuff
 Readonly our $KERNEL_ID     => 0;
@@ -76,7 +78,13 @@ sub run {
 
 sub shutdown {
     DEBUG && warn "Shutdown kernel event loop";
-    $KERNEL->{loop}->end();
+    $KERNEL->{loop}->send();
+}
+
+sub dispatch {
+    my ($obj, $event, $args) = @_;
+}
+
 sub send {
     my ($obj, $event, $args) = @_;
 }
@@ -158,6 +166,7 @@ sub actor_shutdown {
         # TODO Update upstream;
     }
 
+    DEBUG && warn "Shutdown actor $obj";
     $KERNEL->{loop}->end();
 }
 
@@ -172,9 +181,9 @@ sub node_connect {
     );
 
     my $url = URI->new("darly://$addr:$port/");
-    $NODE{$url}{refaddr $handle} =
     $HANDLE{refaddr $handle} =
-        [ $handle, $url ];
+    $NODE{$url}{refaddr $handle} =
+        [ $handle, $url, 0, 0 ];
 
     DEBUG && warn "Node $url connected";
 }
@@ -201,6 +210,28 @@ sub node_read {
         DEBUG && warn "Read buffer overflow on handle $handle";
         node_disconnect($handle);
     }
+
+    $handle->push_read( json => sub {
+        my ($h,$msg) = @_;
+
+        if ( !defined $msg || reftype $msg ne 'ARRAY' ) {
+            node_disconnect( $h, 1, 'Bad message' );
+            return;
+        }
+
+        my ($id,$event,$args,$responder) = @$msg;
+        return unless defined $id && defined $event;
+        my $actor = $ACTOR{$id};
+        return unless defined $actor;
+
+        my $result = eval { dispatch( $actor->[OBJECT], $event, $args ) };
+        if ( defined $responder ) {
+            if ( $@ ) {
+                # TODO send error message
+            }
+            # TODO if $result->isa(future)
+        }
+    });
 }
 
 1;
@@ -213,8 +244,9 @@ Actor ::= { refaddr<Obj> -> ( Meta, Obj, Addr, SUBS{ topic -> { refaddr<code> ->
 
 Alias ::= { alias -> { refaddr<Obj> -> Obj } }
 
-Node ::= { Addr -> { refaddr<Handle> } }
+Node ::= { Addr -> { refaddr<Handle> -> ( Handle, Addr ) } }
 
-Handle ::= { refaddr<Handle> -> ? }
+Handle ::= { refaddr<Handle> -> ( Handle, Addr, Nin, Nout, ) ) }
 
-OutQueue ::= { Addr -> ( N, ? ) }
+Json ::= ( refaddr<Obj>, event, ( arg, ... ), refaddr<Res> )
+Frame ::= ( Magic, Size, message )

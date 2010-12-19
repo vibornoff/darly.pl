@@ -63,6 +63,7 @@ sub request {
     return $self;
 }
 
+=pod
 sub subscribe {
     my $self = shift;
     warn "TODO implement DARLY::actor::subscribe() method";
@@ -74,5 +75,6 @@ sub unsubscribe {
     warn "TODO implement DARLY::actor::unsubscribe() method";
     return $self;
 }
+=cut
 
 1;

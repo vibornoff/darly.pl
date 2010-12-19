@@ -74,11 +74,13 @@ sub run {
     DEBUG && warn "Run kernel event loop";
     $KERNEL->{loop}->begin();
     $KERNEL->{loop}->recv();
+    return '0 but true';
 }
 
 sub shutdown {
     DEBUG && warn "Shutdown kernel event loop";
     $KERNEL->{loop}->send();
+    return '0 but true';
 }
 
 sub dispatch {
@@ -87,10 +89,12 @@ sub dispatch {
 
 sub send {
     my ($obj, $event, $args) = @_;
+    return '0 but true';
 }
 
 sub request {
     my ($obj, $event, $args, $code) = @_;
+    return '0 but true';
 }
 
 sub meta_extend {
@@ -131,6 +135,8 @@ sub actor_spawn {
 
     DEBUG && warn "Spawn new actor $obj";
     $KERNEL->{loop}->begin();
+
+    return '0 but true';
 }
 
 sub actor_alias {
@@ -168,6 +174,8 @@ sub actor_shutdown {
 
     DEBUG && warn "Shutdown actor $obj";
     $KERNEL->{loop}->end();
+
+    return '0 but true';
 }
 
 sub node_connect {
@@ -186,6 +194,7 @@ sub node_connect {
         [ $handle, $url, 0, 0 ];
 
     DEBUG && warn "Node $url connected";
+    return '0 but true';
 }
 
 sub node_disconnect {
@@ -201,6 +210,7 @@ sub node_disconnect {
     $handle->destroy();
 
     DEBUG && warn "Node $url disconnected";
+    return '0 but true';
 }
 
 sub node_read {

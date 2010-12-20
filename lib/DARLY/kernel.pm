@@ -327,6 +327,12 @@ sub kernel_echo {
     return $arg;
 }
 
+sub kernel_delayed_echo {
+    my (undef, $delay, $arg) = @_;
+    my ($t,$f); $t = AE::timer $delay, 0, $f = 'DARLY::future'->new(sub{ undef $t; return $arg });
+    return $f;
+}
+
 BEGIN {
     $META{'DARLY::actor'} = [ 'DARLY::actor', {} ];
 
@@ -336,7 +342,8 @@ BEGIN {
     }];
 
     $META{'DARLY::kernel'} = [ 'DARLY::kernel', {
-        echo    => \&kernel_echo,
+        echo        => \&kernel_echo,
+        delayed_echo => \&kernel_delayed_echo,
     }];
 
     $KERNEL->{loop} = AE::cv();

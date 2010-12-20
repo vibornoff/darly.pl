@@ -41,6 +41,7 @@ use constant HANDLE => 0;
 #use constant URL    => 1; #already defined
 use constant NIN    => 2;
 use constant NOUT   => 3;
+use constant REFS   => 4;
 
 # Kernel stuff
 Readonly our $KERNEL_ID     => 0;
@@ -92,22 +93,41 @@ sub dispatch {
 
 sub send {
     my ($actor, $event, $args) = @_;
-    if ( $actor->[URL] ) {
-        # TODO forward message to another node
+
+    if ( my $url = $actor->[URL] ) {
+        my $h = node_handle($url); my $ha = refaddr $h;
+        $h->push_write( json => [ substr($url->path, 1), $event, $args ]);
     } else {
         dispatch( $actor, $event, $args );
     }
+
     return '0 but true';
 }
 
 sub request {
     my ($actor, $event, $args, $code) = @_;
-    if ( $actor->[URL] ) {
-        # TODO forward request to another node
+
+    if ( my $url = $actor->[URL] ) {
+        my ($h, $ha, $f, $fa);
+
+        $h = node_handle($url);
+        $ha = refaddr $h;
+
+        $f = 'DARLY::future'->spawn( undef, sub {
+                delete $HANDLE{$ha}[REFS]{$fa};
+                goto $code;
+            });
+        $fa = refaddr $f;
+
+        $HANDLE{$ha}[REFS]{$fa} = $f;
+        weaken $HANDLE{$ha}[REFS]{$fa};
+
+        $h->push_write( json => [ substr($url->path, 1), $event, $args, $fa ]);
+        return $f;
     } else {
         $code->( dispatch( $actor, $event, $args ) );
+        return '0 but true';
     }
-    return '0 but true';
 }
 
 sub meta_extend {
@@ -197,6 +217,28 @@ sub actor_shutdown {
     return '0 but true';
 }
 
+sub node_handle {
+    my $url = shift;
+    my $handle;
+
+    if ( $NODE{$url}  && keys %{$NODE{$url}} ) {
+        $handle = (values %{$NODE{$url}})[0][HANDLE];
+    } else {
+        $handle = AnyEvent::Handle->new(
+            connect => [ $url->host, $url->port ],
+            on_error => \&node_disconnect,
+            on_eof  => \&node_disconnect,
+            on_read => \&node_read,
+        );
+
+        $HANDLE{refaddr $handle} =
+        $NODE{$url}{refaddr $handle} =
+            [ $handle, $url, 0, 0, {} ];
+    }
+
+    return $handle;
+}
+
 sub node_connect {
     my ($handle, $addr, $port) = @_;
 
@@ -210,7 +252,7 @@ sub node_connect {
     my $url = URI->new("darly://$addr:$port/");
     $HANDLE{refaddr $handle} =
     $NODE{$url}{refaddr $handle} =
-        [ $handle, $url, 0, 0 ];
+        [ $handle, $url, 0, 0, {} ];
 
     DEBUG && warn "Node $url connected";
     return '0 but true';
@@ -226,9 +268,12 @@ sub node_disconnect {
     delete $NODE{$url}{refaddr $handle};
     delete $NODE{$url} if !keys %{$NODE{$url}};
 
+    dispatch( $_, 'error', "Node disconnected: $message" )
+        for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
+
     $handle->destroy();
 
-    DEBUG && warn "Node $url disconnected";
+    DEBUG && warn "Node $url disconnected: $message";
     return '0 but true';
 }
 
@@ -258,11 +303,19 @@ sub node_read {
         DEBUG && $@ && warn $@;
         if ( defined $responder ) {
             if ( $@ ) {
-                # TODO send error message
                 $h->push_write( json => [ $responder, 'error', $@ ]);
             } else {
-                # TODO if $result->isa(future)
-                $h->push_write( json => [ $responder, 'default', $result ]);
+                if ( $result->isa('DARLY::future') ) {
+                    my $ha = refaddr $h;
+                    my $ra = refaddr $result;
+                    $HANDLE{$ha}[REFS]{$ra} = $result;
+                    $result->cv->cb( sub {
+                        $HANDLE{$ha}[HANDLE]->push_write( json => [ $responder, @_ ]);
+                        delete $HANDLE{$ha}[REFS]{$ra};
+                    });
+                } else {
+                    $h->push_write( json => [ $responder, 'result', $result ]);
+                }
             }
         }
     });
@@ -299,9 +352,9 @@ Actor ::= { refaddr<Obj> -> ( Meta, Obj, Addr, SUBS{ topic -> { refaddr<code> ->
 
 Alias ::= { alias -> { refaddr<Obj> -> Obj } }
 
-Node ::= { Addr -> { refaddr<Handle> -> ( Handle, Addr ) } }
+Node ::= { Addr -> { refaddr<Handle> -> ( Handle, Addr, Nin, Nout, { refaddr<Obj> -> Obj } ) } }
 
-Handle ::= { refaddr<Handle> -> ( Handle, Addr, Nin, Nout, ) ) }
+Handle ::= { refaddr<Handle>        -> ( Handle, Addr, Nin, Nout, { refaddr<Obj> -> Obj } ) ) }
 
 Json ::= ( refaddr<Obj>, event, ( arg, ... ), refaddr<Res> )
 Frame ::= ( Magic, Size, message )

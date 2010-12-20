@@ -310,7 +310,7 @@ sub node_read {
                     my $ra = refaddr $result;
                     $HANDLE{$ha}[REFS]{$ra} = $result;
                     $result->cv->cb( sub {
-                        $HANDLE{$ha}[HANDLE]->push_write( json => [ $responder, @_ ]);
+                        $HANDLE{$ha}[HANDLE]->push_write( json => [ $responder, ( $_[0]->recv )]);
                         delete $HANDLE{$ha}[REFS]{$ra};
                     });
                 } else {

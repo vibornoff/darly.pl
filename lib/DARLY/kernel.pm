@@ -87,7 +87,7 @@ sub shutdown {
 sub dispatch {
     my ($actor, $event, $args) = @_;
     my $code = $actor->[META][EVENT]{$event};
-    return if !defined $code || reftype $code ne 'CODE';
+    die "No handler for event '$event'" if !defined $code || ( ref $code && reftype $code ne 'CODE' );
     return $code->( $actor->[OBJECT], defined $args ? @$args : () );
 }
 
@@ -294,9 +294,18 @@ sub node_read {
         }
 
         my ($id,$event,$args,$responder) = @$msg;
-        return unless defined $id && defined $event;
+        if ( !defined $id || !defined $event ) {
+            DEBUG && warn "Actor and event are required";
+            $h->push_write( json => [ $responder || $KERNEL_ID, 'error', "Actor and event are required" ]);
+            return;
+        }
+
         my $actor = $ACTOR{$id};
-        return unless defined $actor;
+        if ( !defined $actor ) {
+            DEBUG && warn "No such actor '$id'";
+            $h->push_write( json => [ $responder || $KERNEL_ID, 'error', "No such actor '$id'" ]);
+            return;
+        }
 
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
         my $result = eval { dispatch( $actor, $event, $args ) };
@@ -321,6 +330,13 @@ sub node_read {
     });
 }
 
+sub kernel_error {
+    DEBUG && do {
+        my (undef, $error) = @_;
+        warn "Got error from foreign node: $error";
+    }
+}
+
 sub kernel_echo {
     my (undef, $arg) = @_;
     die "Expected" if rand(1) < 0.5;
@@ -342,6 +358,7 @@ BEGIN {
     }];
 
     $META{'DARLY::kernel'} = [ 'DARLY::kernel', {
+        error       => \&kernel_error,
         echo        => \&kernel_echo,
         delayed_echo => \&kernel_delayed_echo,
     }];

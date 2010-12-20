@@ -40,12 +40,14 @@ ok( $testvar eq 'damn', "\$testvar got right value" );
 ok( $aliased->shutdown() || 1, "Shutdown actor" );
 
 
-my $f;
+my ($t,$f);
 {
+    use AnyEvent;
     use DARLY;
-    $f = future { 1 };
+    $t = AE::timer 3, 0, $f = future { 3 };
 }
 ok ( $f, "Create future object" );
+ok ( join('',$f->cv->recv) eq 'result3', "Wait future for 3 sec" );
 
 DARLY::run();
 

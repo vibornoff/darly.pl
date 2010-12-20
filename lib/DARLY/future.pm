@@ -15,7 +15,7 @@ sub DESTROY {
     $self->[0]->send( $self->[1]->() );
 }
 
-sub default {
+sub result {
     my $self = shift;
     $self->[1]->(@_);
 }

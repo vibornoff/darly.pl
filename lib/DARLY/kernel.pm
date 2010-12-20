@@ -278,7 +278,7 @@ BEGIN {
     $META{'DARLY::actor'} = [ 'DARLY::actor', {} ];
 
     $META{'DARLY::future'} = [ 'DARLY::future', {
-        default => \&{DARLY::future::default},
+        result  => \&{DARLY::future::result},
         error   => \&{DARLY::future::error},
     }];
 

@@ -9,6 +9,9 @@ use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
 
+require DARLY::actor;
+require DARLY::future;
+
 use strict;
 use warnings;
 
@@ -43,11 +46,8 @@ use constant NOUT   => 3;
 Readonly our $KERNEL_ID     => 0;
 Readonly our $DEFAULT_PORT  => 12345;
 Readonly our $MAX_MSG_SIZE  => 65536;   # 64 KiB
-Readonly our $MAX_BUF_SIZE  => 1**20;   # 1 MiB
+Readonly our $MAX_BUF_SIZE  => 2**20;   # 1 MiB
 my $KERNEL;
-BEGIN {
-    $KERNEL->{loop} = AE::cv();
-}
 
 sub run {
     my %opts = @_;
@@ -59,7 +59,7 @@ sub run {
 
     # Register kernel Actor
     my $KERNEL_CLASS = __PACKAGE__;
-    $ACTOR{$KERNEL_ID} = [ $KERNEL_CLASS, $KERNEL, undef, undef ];
+    $ACTOR{$KERNEL_ID} = [ $META{$KERNEL_CLASS}, undef, $KERNEL, undef ];
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
     # Start listenting
@@ -87,7 +87,7 @@ sub dispatch {
     my ($actor, $event, $args) = @_;
     my $code = $actor->[META][EVENT]{$event};
     return if !defined $code || reftype $code ne 'CODE';
-    return $code->( defined $args ? @$args : () );
+    return $code->( $actor->[OBJECT], defined $args ? @$args : () );
 }
 
 sub send {
@@ -128,8 +128,8 @@ sub meta_event {
         @_,
     );
 
-    croak "Class to define event in is required to be actor"
-        if !defined $class || !$class->isa('DARLY::actor');
+    croak "Class required to define event in"
+        if !defined $class;
 
     $META{$class}[EVENT]{$event} = $code;
 }
@@ -253,15 +253,38 @@ sub node_read {
         my $actor = $ACTOR{$id};
         return unless defined $actor;
 
-        $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+        $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
         my $result = eval { dispatch( $actor, $event, $args ) };
+        DEBUG && $@ && warn $@;
         if ( defined $responder ) {
             if ( $@ ) {
                 # TODO send error message
+                $h->push_write( json => [ $responder, 'error', $@ ]);
+            } else {
+                # TODO if $result->isa(future)
+                $h->push_write( json => [ $responder, 'default', $result ]);
             }
-            # TODO if $result->isa(future)
         }
     });
+}
+
+sub kernel_echo {
+    my (undef, $arg) = @_;
+    die "Expected" if rand(1) < 0.5;
+    return $arg;
+}
+
+BEGIN {
+    $META{'DARLY::future'} = [ 'DARLY::future', {
+        default => \&{DARLY::future::default},
+        error   => \&{DARLY::future::error},
+    }];
+
+    $META{'DARLY::kernel'} = [ 'DARLY::kernel', {
+        echo    => \&kernel_echo,
+    }];
+
+    $KERNEL->{loop} = AE::cv();
 }
 
 1;

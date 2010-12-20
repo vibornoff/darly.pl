@@ -8,12 +8,6 @@ use warnings;
 
 require DARLY::kernel;
 
-BEGIN {
-    DARLY::kernel::meta_event( __PACKAGE__, 'default' );
-    DARLY::kernel::meta_event( __PACKAGE__, 'error' );
-    DARLY::kernel::meta_extend( __PACKAGE__, __PACKAGE__ );
-}
-
 sub new {
     my $class = shift; $class = ref $class || $class;
     return bless { @_ }, $class;
@@ -57,7 +51,7 @@ sub send {
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
     my $actor = DARLY::kernel::actor_get($self) or return;
-    $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+    $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
     return DARLY::kernel::send($actor,$event,$args);
 }
 
@@ -67,7 +61,7 @@ sub request {
     croak "Event required" if !defined $event || !length $event;
     croak "Callback required" if !defined $cb || ( ref $cb ne 'CODE' && !$cb->isa('DARLY::actor') );
     my $actor = DARLY::kernel::actor_get($self) or return;
-    $args = [ $args ] if defined $args && reftype $args ne 'ARRAY';
+    $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
     return DARLY::kernel::request($actor,$event,$args,$cb);
 }
 

@@ -275,6 +275,8 @@ sub kernel_echo {
 }
 
 BEGIN {
+    $META{'DARLY::actor'} = [ 'DARLY::actor', {} ];
+
     $META{'DARLY::future'} = [ 'DARLY::future', {
         default => \&{DARLY::future::default},
         error   => \&{DARLY::future::error},

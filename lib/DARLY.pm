@@ -26,7 +26,7 @@ sub import {
 
 #sub topic($)    { }
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
-sub future(&)   { goto \&DARLY::future::new }
+sub future(&)   { DARLY::future->new(@_) }
 
 *run = *{DARLY::kernel::run};
 

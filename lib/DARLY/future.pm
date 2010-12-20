@@ -13,8 +13,9 @@ use constant CODE   => 1;
 my %INNER;
 
 sub new {
+    my $class = shift; $class = ref $class || $class;
     my $inner = [ AE::cv(), @_ ];
-    my $self = bless sub { $inner->[CV]->send( 'result', $inner->[CODE]->(@_) ) };
+    my $self = bless sub { $inner->[CV]->send( 'result', $inner->[CODE]->(@_) ) }, $class;
     $INNER{refaddr $self} = $inner;
     return $self;
 }

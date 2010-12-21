@@ -9,8 +9,8 @@ use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
 
-require DARLY::actor;
-require DARLY::future;
+use DARLY::actor;
+use DARLY::future;
 
 use strict;
 use warnings;
@@ -353,8 +353,8 @@ BEGIN {
     $META{'DARLY::actor'} = [ 'DARLY::actor', {} ];
 
     $META{'DARLY::future'} = [ 'DARLY::future', {
-        result  => \&{DARLY::future::result},
-        error   => \&{DARLY::future::error},
+        result  => \&DARLY::future::result,
+        error   => \&DARLY::future::error,
     }];
 
     $META{'DARLY::kernel'} = [ 'DARLY::kernel', {

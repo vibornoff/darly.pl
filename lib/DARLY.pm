@@ -5,9 +5,9 @@ our $VERSION = '0.00';
 use strict;
 use warnings;
 
-require DARLY::kernel;
-require DARLY::actor;
-require DARLY::future;
+use DARLY::kernel;
+use DARLY::actor;
+use DARLY::future;
 
 sub import {
     my $caller = (caller)[0];
@@ -28,7 +28,7 @@ sub import {
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { DARLY::future->new(@_) }
 
-*run = *{DARLY::kernel::run};
+*run = *DARLY::kernel::run;
 
 1;
 

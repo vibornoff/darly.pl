@@ -88,8 +88,11 @@ sub shutdown {
 
 sub dispatch {
     my ($actor, $event, $args) = @_;
+
     my $code = $actor->[META][EVENT]{$event};
-    die "No handler for event '$event'" if !defined $code || ( ref $code && reftype $code ne 'CODE' );
+    die "Actor '$actor->[OBJECT]': No handler for event '$event'"
+        if !defined $code || ( ref $code && reftype $code ne 'CODE' );
+
     return $code->( $actor->[OBJECT], defined $args ? @$args : () );
 }
 
@@ -283,12 +286,12 @@ sub node_disconnect {
     delete $NODE{$url}{refaddr $handle};
     delete $NODE{$url} if !keys %{$NODE{$url}};
 
-    dispatch( $_, 'error', "Node disconnected: $message" )
+    dispatch( $_, 'error', "Node disconnected" . ( $message ? ": $message" : '' ) )
         for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
 
     $handle->destroy();
 
-    DEBUG && warn "Node $url disconnected: $message";
+    DEBUG && warn "Node $url disconnected" . ( $message ? ": $message" : '' );
     return '0 but true';
 }
 
@@ -329,7 +332,7 @@ sub node_read {
             if ( $@ ) {
                 $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', $@ ]);
             } else {
-                if ( $result->isa('DARLY::future') ) {
+                if ( ref $result && blessed $result && $result->isa('DARLY::future') ) {
                     my $ha = refaddr $h;
                     my $ra = refaddr $result;
                     $HANDLE{$ha}[REFS]{$ra} = $result;

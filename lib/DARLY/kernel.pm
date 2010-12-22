@@ -217,6 +217,19 @@ sub actor_alias {
     return $actor->[ALIAS];
 }
 
+sub actor_url {
+    my ($obj, $url) = @_;
+
+    my $actor = $ACTOR{refaddr $obj};
+    return if !defined $actor;
+
+    if ( @_ > 1 ) {
+        $actor->[URL] = ref $url ? $url : URI->new($url);
+    }
+
+    return $actor->[URL];
+}
+
 sub actor_shutdown {
     my $obj = shift;
 

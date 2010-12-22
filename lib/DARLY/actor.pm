@@ -43,7 +43,17 @@ sub alias {
 }
 
 sub reference {
-    my ($self,$alias) = @_;
+    my ($self,$url) = @_;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+
+    return DARLY::kernel::actor_url(@_);
+}
+
+sub url {
+    my ($self,$url) = @_;
+    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+
+    return DARLY::kernel::actor_url(@_);
 }
 
 sub send {

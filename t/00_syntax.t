@@ -37,6 +37,16 @@ ok( $testvar eq 'blah', "\$testvar got right value" );
 ok( $aliased->request( 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
 ok( $testvar eq 'damn', "\$testvar got right value" );
 
+ok( $aliased->reference('darly://127.0.0.1:6444/foo'),      'Set url for actor'     );
+ok( substr($aliased->reference->path, 1) eq 'foo',          'Remote path correct'   );
+ok( $aliased->reference->host eq '127.0.0.1',               'Remote host correct'   );
+ok( $aliased->url->port eq '6444',                          'Remote port correct'   );
+
+ok( $aliased->url('darly://1.2.3.4:444/bar'),               'Change url for actor'  );
+ok( substr($aliased->url->path, 1) eq 'bar',                'Remote path correct'   );
+ok( $aliased->url->host eq '1.2.3.4',                       'Remote host correct'   );
+ok( $aliased->reference->port eq '444',                     'Remote port correct'   );
+
 ok( $aliased->shutdown() || 1, "Shutdown actor" );
 
 

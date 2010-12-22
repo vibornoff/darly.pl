@@ -46,6 +46,7 @@ use constant REFS   => 4;
 # Kernel stuff
 Readonly our $KERNEL_ID     => 0;
 Readonly our $DEFAULT_PORT  => 12345;
+Readonly our $DEFAULT_PROTOCOL => 'json';
 Readonly our $MAX_MSG_SIZE  => 65536;   # 64 KiB
 Readonly our $MAX_BUF_SIZE  => 2**20;   # 1 MiB
 my $KERNEL;
@@ -54,9 +55,10 @@ sub run {
     my %opts = @_;
 
     # Kernel options
-    #$opts{'tracker'} ||= undef;
-    $opts{'bind'}   ||= undef;
-    $opts{'port'}   ||= $DEFAULT_PORT;
+    #$KERNEL->{'tracker'}    = $opts{'tracker'}  || undef;
+    $KERNEL->{'bind'}       = $opts{'bind'}     || undef;
+    $KERNEL->{'port'}       = $opts{'port'}     || $DEFAULT_PORT;
+    $KERNEL->{'protocol'}   = $opts{'protocol'} || $DEFAULT_PROTOCOL;
 
     # Register kernel Actor
     my $KERNEL_CLASS = __PACKAGE__;
@@ -64,7 +66,7 @@ sub run {
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
     # Start listenting
-    $KERNEL->{server} = tcp_server( $opts{'bind'}, $opts{'port'} => \&node_connect );
+    $KERNEL->{'server'} = tcp_server( $KERNEL->{'bind'}, $KERNEL->{'port'} => \&node_connect );
 
     # Connect tracker if need
     #if ( $opts{tracker} ) {
@@ -73,14 +75,14 @@ sub run {
     #}
 
     DEBUG && warn "Run kernel event loop";
-    $KERNEL->{loop}->begin();
-    $KERNEL->{loop}->recv();
+    $KERNEL->{'loop'}->begin();
+    $KERNEL->{'loop'}->recv();
     return '0 but true';
 }
 
 sub shutdown {
     DEBUG && warn "Shutdown kernel event loop";
-    $KERNEL->{loop}->send();
+    $KERNEL->{'loop'}->send();
     return '0 but true';
 }
 
@@ -96,7 +98,7 @@ sub send {
 
     if ( my $url = $actor->[URL] ) {
         my $h = node_handle($url); my $ha = refaddr $h;
-        $h->push_write( json => [ substr($url->path, 1), $event, $args ]);
+        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args ]);
     } else {
         dispatch( $actor, $event, $args );
     }
@@ -122,7 +124,7 @@ sub request {
         $HANDLE{$ha}[REFS]{$fa} = $f;
         weaken $HANDLE{$ha}[REFS]{$fa};
 
-        $h->push_write( json => [ substr($url->path, 1), $event, $args, $fa ]);
+        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args, $fa ]);
         return $f;
     } else {
         $code->( dispatch( $actor, $event, $args ) );
@@ -167,7 +169,7 @@ sub actor_spawn {
     weaken $actor->[OBJECT] if ref $obj;
 
     DEBUG && warn "Spawn new actor $obj";
-    $KERNEL->{loop}->begin();
+    $KERNEL->{'loop'}->begin();
 
     return '0 but true';
 }
@@ -225,7 +227,7 @@ sub actor_shutdown {
     }
 
     DEBUG && warn "Shutdown actor $obj";
-    $KERNEL->{loop}->end();
+    $KERNEL->{'loop'}->end();
 
     return '0 but true';
 }
@@ -298,7 +300,7 @@ sub node_read {
         node_disconnect($handle);
     }
 
-    $handle->push_read( json => sub {
+    $handle->push_read( $KERNEL->{'protocol'} => sub {
         my ($h,$msg) = @_;
 
         if ( !defined $msg || reftype $msg ne 'ARRAY' ) {
@@ -306,17 +308,17 @@ sub node_read {
             return;
         }
 
-        my ($id,$event,$args,$responder) = @$msg;
-        if ( !defined $id || !defined $event ) {
+        my ($dest,$event,$args,$responder) = @$msg;
+        if ( !defined $dest || !defined $event ) {
             DEBUG && warn "Actor and event are required";
-            $h->push_write( json => [ $responder || $KERNEL_ID, 'error', "Actor and event are required" ]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', "Actor and event are required" ]);
             return;
         }
 
-        my $actor = actor_resolve($id);
+        my $actor = actor_resolve($dest);
         if ( !defined $actor ) {
-            DEBUG && warn "No such actor '$id'";
-            $h->push_write( json => [ $responder || $KERNEL_ID, 'error', "No such actor '$id'" ]);
+            DEBUG && warn "No such actor '$dest'";
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', "No such actor '$dest'" ]);
             return;
         }
 
@@ -325,18 +327,18 @@ sub node_read {
         DEBUG && $@ && warn $@;
         if ( defined $responder ) {
             if ( $@ ) {
-                $h->push_write( json => [ $responder, 'error', $@ ]);
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', $@ ]);
             } else {
                 if ( $result->isa('DARLY::future') ) {
                     my $ha = refaddr $h;
                     my $ra = refaddr $result;
                     $HANDLE{$ha}[REFS]{$ra} = $result;
                     $result->cv->cb( sub {
-                        $HANDLE{$ha}[HANDLE]->push_write( json => [ $responder, ( $_[0]->recv )]);
+                        $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
                         delete $HANDLE{$ha}[REFS]{$ra};
                     });
                 } else {
-                    $h->push_write( json => [ $responder, 'result', $result ]);
+                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', $result ]);
                 }
             }
         }
@@ -376,7 +378,7 @@ BEGIN {
         delayed_echo => \&kernel_delayed_echo,
     }];
 
-    $KERNEL->{loop} = AE::cv();
+    $KERNEL->{'loop'} = AE::cv();
 }
 
 1;
@@ -393,5 +395,4 @@ Node ::= { Addr -> { refaddr<Handle> -> ( Handle, Addr, Nin, Nout, { refaddr<Obj
 
 Handle ::= { refaddr<Handle>        -> ( Handle, Addr, Nin, Nout, { refaddr<Obj> -> Obj } ) ) }
 
-Json ::= ( refaddr<Obj>, event, ( arg, ... ), refaddr<Res> )
-Frame ::= ( Magic, Size, message )
+message ::= ( refaddr<Obj> || alias, event, ( arg, ... ), refaddr<Res>, ... )

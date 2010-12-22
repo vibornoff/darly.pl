@@ -178,6 +178,19 @@ sub actor_get {
     return $actor;
 }
 
+sub actor_resolve {
+    my $id_or_alias = shift;
+    my $actor = $ACTOR{$id_or_alias};
+
+    if ( !defined $actor && exists $ALIAS{$id_or_alias} ) {
+        # FIXME more reliable alias->actor resolution method later
+        my $ra = (keys %{$ALIAS{$id_or_alias}})[0];
+        $actor = $ACTOR{$ra};
+    }
+
+    return $actor;
+}
+
 sub actor_alias {
     my ($obj, $alias) = @_;
 
@@ -300,7 +313,7 @@ sub node_read {
             return;
         }
 
-        my $actor = $ACTOR{$id};
+        my $actor = actor_resolve($id);
         if ( !defined $actor ) {
             DEBUG && warn "No such actor '$id'";
             $h->push_write( json => [ $responder || $KERNEL_ID, 'error', "No such actor '$id'" ]);

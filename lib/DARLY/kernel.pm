@@ -120,7 +120,8 @@ sub request {
 
         $f = 'DARLY::future'->spawn( undef, sub {
                 delete $HANDLE{$ha}[REFS]{$fa};
-                goto $code;
+                goto $code if $code;
+                return @_;
             });
         $fa = refaddr $f;
 
@@ -130,7 +131,8 @@ sub request {
         $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args, $fa ]);
         return $f;
     } else {
-        $code->( dispatch( $actor, $event, $args ) );
+        my @result = dispatch( $actor, $event, $args );
+        $code->( @result ) if $code;
         return '0 but true';
     }
 }

@@ -1,7 +1,7 @@
 package DARLY::actor;
 
 use Carp;
-use Scalar::Util qw( reftype );
+use Scalar::Util qw( reftype blessed );
 
 use strict;
 use warnings;
@@ -43,14 +43,17 @@ sub alias {
 }
 
 sub reference {
-    my ($self,$url) = @_;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
+    my ($class, $url) = @_;
+    $class = ref $class || $class;
 
-    return DARLY::kernel::actor_url(@_);
+    my $self = $class->spawn();
+    $self->url($url);
+
+    return $self;
 }
 
 sub url {
-    my ($self,$url) = @_;
+    my ($self, $url) = @_;
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
 
     return DARLY::kernel::actor_url(@_);
@@ -69,7 +72,9 @@ sub request {
     my ($self,$event,$args,$cb) = @_;
     croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
-    croak "Callback required" if !defined $cb || ( ref $cb ne 'CODE' && !$cb->isa('DARLY::actor') );
+    croak "Callback must be code ref"
+                if defined $cb && !( ref $cb eq 'CODE'
+                                    || blessed $cb && $cb->isa('DARLY::actor') );
     my $actor = DARLY::kernel::actor_get($self) or return;
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
     return DARLY::kernel::request($actor,$event,$args,$cb);

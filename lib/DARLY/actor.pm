@@ -2,11 +2,12 @@ package DARLY::actor;
 
 use Carp;
 use Scalar::Util qw( reftype blessed );
+use URI;
+
+require DARLY::kernel;
 
 use strict;
 use warnings;
-
-require DARLY::kernel;
 
 sub new {
     my $class = shift; $class = ref $class || $class;
@@ -20,64 +21,56 @@ sub DESTROY {
 
 sub spawn {
     my ($self,$alias) = @_;
-    $self = $self->new( @_[2..$#_] ) unless ref $self;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Alias '$alias' is empty" if defined $alias && !length $alias;
-    DARLY::kernel::actor_spawn(ref $self, $self, undef);
-    DARLY::kernel::actor_alias($self, $alias) if $alias;
+    $self = $self->new( @_[2..$#_] ) unless ref $self;
+    my $actor = DARLY::kernel::actor_spawn(ref $self, $self, undef);
+    DARLY::kernel::actor_alias($actor, $alias) if $alias;
+    return $self;
+}
+
+sub reference {
+    my ($self,$url) = @_;
+    croak "Url '$url' is empty" if defined $url && !length $url;
+    $self = $self->new( @_[2..$#_] ) unless ref $self;
+    DARLY::kernel::actor_spawn(ref $self, $self, URI->new($url));
     return $self;
 }
 
 sub shutdown {
     my $self = shift;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
-    DARLY::kernel::actor_shutdown($self);
-    return;
+    my $actor = DARLY::kernel::actor_get($self) or return;
+    return DARLY::kernel::actor_shutdown($actor);
 }
 
 sub alias {
-    my ($self,$alias) = @_;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
-    croak "Alias '$alias' is empty" if defined $alias && !length $alias;
-    return DARLY::kernel::actor_alias(@_);
-}
-
-sub reference {
-    my ($class, $url) = @_;
-    $class = ref $class || $class;
-
-    my $self = $class->spawn();
-    $self->url($url);
-
-    return $self;
+    my $self = shift;
+    croak "Alias '$_[0]' is empty" if defined $_[0] && !length $_[0];
+    my $actor = DARLY::kernel::actor_get($self) or return;
+    return DARLY::kernel::actor_alias($actor,@_);
 }
 
 sub url {
-    my ($self, $url) = @_;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
-
-    return DARLY::kernel::actor_url(@_);
+    my $self = shift;
+    croak "Url '$_[0]' is empty" if defined $_[0] && !length $_[0];
+    my $actor = DARLY::kernel::actor_get($self) or return;
+    return DARLY::kernel::actor_url($actor,@_);
 }
 
 sub send {
     my ($self,$event,$args) = @_;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
     my $actor = DARLY::kernel::actor_get($self) or return;
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-    return DARLY::kernel::send($actor,$event,$args);
+    return DARLY::kernel::actor_send($actor,$event,$args);
 }
 
 sub request {
     my ($self,$event,$args,$cb) = @_;
-    croak "Object '$self' is not an actor" if !$self->isa('DARLY::actor');
     croak "Event required" if !defined $event || !length $event;
-    croak "Callback must be code ref"
-                if defined $cb && !( ref $cb eq 'CODE'
-                                    || blessed $cb && $cb->isa('DARLY::actor') );
+    croak "Callback must be code ref" if defined $cb && ref $cb ne 'CODE' && !( blessed $cb && $cb->isa('DARLY::actor') );
     my $actor = DARLY::kernel::actor_get($self) or return;
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-    return DARLY::kernel::request($actor,$event,$args,$cb);
+    return DARLY::kernel::actor_request($actor,$event,$args,$cb);
 }
 
 =pod

@@ -86,56 +86,9 @@ sub shutdown {
     return '0 but true';
 }
 
-sub dispatch {
-    my ($actor, $event, $args) = @_;
-
-    my $code = $actor->[META][EVENT]{$event};
-    die "Actor '$actor->[OBJECT]': No handler for event '$event'"
-        if !defined $code || ( ref $code && reftype $code ne 'CODE' );
-
-    return $code->( $actor->[OBJECT], defined $args ? @$args : () );
-}
-
-sub send {
-    my ($actor, $event, $args) = @_;
-
-    if ( my $url = $actor->[URL] ) {
-        my $h = node_handle($url); my $ha = refaddr $h;
-        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args ]);
-    } else {
-        dispatch( $actor, $event, $args );
-    }
-
-    return '0 but true';
-}
-
-sub request {
-    my ($actor, $event, $args, $code) = @_;
-
-    if ( my $url = $actor->[URL] ) {
-        my ($h, $ha, $f, $fa);
-
-        $h = node_handle($url);
-        $ha = refaddr $h;
-
-        $f = 'DARLY::future'->spawn( undef, sub {
-                delete $HANDLE{$ha}[REFS]{$fa};
-                goto $code if $code;
-                return @_;
-            });
-        $fa = refaddr $f;
-
-        $HANDLE{$ha}[REFS]{$fa} = $f;
-        weaken $HANDLE{$ha}[REFS]{$fa};
-
-        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args, $fa ]);
-        return $f;
-    } else {
-        my @result = dispatch( $actor, $event, $args );
-        $code->( @result ) if $code;
-        return '0 but true';
-    }
-}
+###############################################################################
+# Meta-related stuff
+###############################################################################
 
 sub meta_extend {
     my ($class, $super) = @_;
@@ -161,22 +114,24 @@ sub meta_event {
     $META{$class}[EVENT]{$event} = $code;
 }
 
-=pod
-sub meta_topic {
-}
-=cut
+#sub meta_topic {
+#}
+
+###############################################################################
+# Actor-related stuff
+###############################################################################
 
 sub actor_spawn {
     my ($class, $obj, $url) = @_;
 
-    my $actor = [ $META{$class}, $url, $obj, undef ];
+    my $actor = [ $META{$class} || $META{'DARLY::actor'}, $url, $obj, undef ];
     $ACTOR{refaddr $obj} = $actor;
-    weaken $actor->[OBJECT] if ref $obj;
+    weaken $actor->[OBJECT];
 
     DEBUG && warn "Spawn new actor $obj";
     $KERNEL->{'loop'}->begin();
 
-    return '0 but true';
+    return $actor;
 }
 
 sub actor_get {
@@ -199,10 +154,8 @@ sub actor_resolve {
 }
 
 sub actor_alias {
-    my ($obj, $alias) = @_;
-
-    my $actor = $ACTOR{refaddr $obj};
-    return if !defined $actor;
+    my ($actor, $alias) = @_;
+    my $obj = $actor->[OBJECT];
 
     if ( @_ > 1 ) {
         if ( defined $alias ) {
@@ -220,10 +173,7 @@ sub actor_alias {
 }
 
 sub actor_url {
-    my ($obj, $url) = @_;
-
-    my $actor = $ACTOR{refaddr $obj};
-    return if !defined $actor;
+    my ($actor, $url) = @_;
 
     if ( @_ > 1 ) {
         $actor->[URL] = ref $url ? $url : URI->new($url);
@@ -233,10 +183,10 @@ sub actor_url {
 }
 
 sub actor_shutdown {
-    my $obj = shift;
+    my $actor = shift;
 
-    my $actor = delete $ACTOR{refaddr $obj};
-    return if !defined $actor;
+    my $obj = $actor->[OBJECT];
+    return unless defined $obj;
 
     if ( my $alias = $actor->[ALIAS] ) {
         delete $ALIAS{$alias}{refaddr $obj};
@@ -249,6 +199,62 @@ sub actor_shutdown {
 
     return '0 but true';
 }
+
+sub actor_dispatch {
+    my ($actor, $event, $args) = @_;
+
+    my $code = $actor->[META][EVENT]{$event};
+    die "Actor '$actor->[OBJECT]': No handler for event '$event'"
+        if !defined $code || ( ref $code && reftype $code ne 'CODE' );
+
+    return $code->( $actor->[OBJECT], defined $args ? @$args : () );
+}
+
+sub actor_send {
+    my ($actor, $event, $args) = @_;
+
+    if ( my $url = $actor->[URL] ) {
+        my $h = node_handle($url); my $ha = refaddr $h;
+        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args ]);
+    } else {
+        actor_dispatch( $actor, $event, $args );
+    }
+
+    return '0 but true';
+}
+
+sub actor_request {
+    my ($actor, $event, $args, $code) = @_;
+
+    if ( my $url = $actor->[URL] ) {
+        my ($h, $ha, $f, $fa);
+
+        $h = node_handle($url);
+        $ha = refaddr $h;
+
+        $f = 'DARLY::future'->spawn( undef, sub {
+                delete $HANDLE{$ha}[REFS]{$fa};
+                goto $code if $code;
+                return @_;
+            });
+        $fa = refaddr $f;
+
+        $HANDLE{$ha}[REFS]{$fa} = $f;
+        weaken $HANDLE{$ha}[REFS]{$fa};
+
+        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args, $fa ]);
+        return $f;
+    } else {
+        my @result = actor_dispatch( $actor, $event, $args );
+        $code->( @result ) if $code;
+        # FIXME think about returning something more appropriate
+        return '0 but true';
+    }
+}
+
+###############################################################################
+# Node-related stuff
+###############################################################################
 
 sub node_handle {
     my $url = shift;
@@ -301,7 +307,7 @@ sub node_disconnect {
     delete $NODE{$url}{refaddr $handle};
     delete $NODE{$url} if !keys %{$NODE{$url}};
 
-    dispatch( $_, 'error', "Node disconnected" . ( $message ? ": $message" : '' ) )
+    actor_dispatch( $_, 'error', [ "Node disconnected" . ( $message ? ": $message" : '' ) ])
         for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
 
     $handle->destroy();
@@ -329,23 +335,24 @@ sub node_read {
         my ($dest,$event,$args,$responder) = @$msg;
         if ( !defined $dest || !defined $event ) {
             DEBUG && warn "Actor and event are required";
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', "Actor and event are required" ]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "Actor and event are required" ]]);
             return;
         }
 
         my $actor = actor_resolve($dest);
         if ( !defined $actor ) {
             DEBUG && warn "No such actor '$dest'";
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', "No such actor '$dest'" ]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "No such actor '$dest'" ]]);
             return;
         }
 
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-        my $result = eval { dispatch( $actor, $event, $args ) };
+        my $result = eval { actor_dispatch( $actor, $event, $args ) };
         DEBUG && $@ && warn $@;
+
         if ( defined $responder ) {
             if ( $@ ) {
-                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', $@ ]);
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ $@ ]]);
             } else {
                 if ( ref $result && blessed $result && $result->isa('DARLY::future') ) {
                     my $ha = refaddr $h;
@@ -362,6 +369,10 @@ sub node_read {
         }
     });
 }
+
+###############################################################################
+# Kernel's actor event handlers
+###############################################################################
 
 sub kernel_error {
     DEBUG && do {
@@ -381,6 +392,10 @@ sub kernel_delayed_echo {
     my ($t,$f); $t = AE::timer $delay, 0, $f = 'DARLY::future'->new(sub{ undef $t; return $arg });
     return $f;
 }
+
+###############################################################################
+# Kernel initialization
+###############################################################################
 
 BEGIN {
     $META{'DARLY::actor'} = [ 'DARLY::actor', {} ];
@@ -403,14 +418,18 @@ BEGIN {
 
 __END__
 
-Meta ::= { Package -> ( Package, EVENTS{ event -> code }, TOPICS{ topic -> 1 } ) }
+=head1 INTERNALS
 
-Actor ::= { refaddr<Obj> -> ( Meta, Obj, Addr, SUBS{ topic -> { refaddr<code> -> code } } ) }
+META ::= { Package -> ( Package, EVENTS{ event -> code }, TOPICS{ topic -> 1 } ) }
 
-Alias ::= { alias -> { refaddr<Obj> -> Obj } }
+ACTOR ::= { refaddr<Obj> -> ( Meta, Obj, url, SUBS{ topic -> { refaddr<code> -> code } } ) }
 
-Node ::= { Addr -> { refaddr<Handle> -> ( Handle, Addr, Nin, Nout, { refaddr<Obj> -> Obj } ) } }
+ALIAS ::= { alias -> { refaddr<Obj> -> Obj } }
 
-Handle ::= { refaddr<Handle>        -> ( Handle, Addr, Nin, Nout, { refaddr<Obj> -> Obj } ) ) }
+NODE ::= { url -> { refaddr<Handle> -> ( Handle, url, Nin, Nout, REFS{ refaddr<Obj> -> Obj } ) } }
 
-message ::= ( refaddr<Obj> || alias, event, ( arg, ... ), refaddr<Res>, ... )
+HANDLE ::= { refaddr<Handle>        -> ( Handle, url, Nin, Nout, REFS{ refaddr<Obj> -> Obj } ) ) }
+
+message ::= ( refaddr<Obj> || alias, event, ( arg, ... ), refaddr<Res> )
+
+=cut

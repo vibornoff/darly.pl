@@ -57,20 +57,49 @@ sub url {
 }
 
 sub send {
-    my ($self,$event,$args) = @_;
+    my ($self, $rcpt, $event, $args) = @_;
+    $rcpt //= $self;
+
+    my $sender = DARLY::kernel::actor_get($self);
+    croak "Can't call method 'request' on non-spawned actor"
+        unless defined $sender;
+
+    croak "Recipient required" if !defined $rcpt;
+    my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
+                    ? DARLY::kernel::actor_get($self)
+                    : DARLY::kernel::actor_spawn( 'DARLY::actor', DARLY::actor->new(), URI->new($rcpt) );
+    croak "Can't request event to non-spawned actor '$rcpt'"
+        unless defined $recipient;
+
     croak "Event required" if !defined $event || !length $event;
-    my $actor = DARLY::kernel::actor_get($self) or return;
+
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-    return DARLY::kernel::actor_send($actor,$event,$args);
+
+    return DARLY::kernel::actor_send( $sender, $recipient, $event, $args );
 }
 
 sub request {
-    my ($self,$event,$args,$cb) = @_;
+    my ($self, $rcpt, $event, $args, $cb) = @_;
+    $rcpt //= $self;
+
+    my $sender = DARLY::kernel::actor_get($self);
+    croak "Can't call method 'request' on non-spawned actor"
+        unless defined $sender;
+
+    croak "Recipient required" if !defined $rcpt;
+    my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
+                    ? DARLY::kernel::actor_get($self)
+                    : DARLY::kernel::actor_spawn( 'DARLY::actor', DARLY::actor->new(), URI->new($rcpt) );
+    croak "Can't request event to non-spawned actor '$rcpt'"
+        unless defined $recipient;
+
     croak "Event required" if !defined $event || !length $event;
+
     croak "Callback must be code ref" if defined $cb && ref $cb ne 'CODE' && !( blessed $cb && $cb->isa('DARLY::actor') );
-    my $actor = DARLY::kernel::actor_get($self) or return;
+
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-    return DARLY::kernel::actor_request($actor,$event,$args,$cb);
+
+    return DARLY::kernel::actor_request( $sender, $recipient, $event, $args, $cb );
 }
 
 =pod

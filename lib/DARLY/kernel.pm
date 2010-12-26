@@ -201,32 +201,48 @@ sub actor_shutdown {
 }
 
 sub actor_dispatch {
-    my ($actor, $event, $args) = @_;
+    my ($recipient, $sender, $event, $args) = @_;
 
-    my $code = $actor->[META][EVENT]{$event};
-    die "Actor '$actor->[OBJECT]': No handler for event '$event'"
+    my $code = $recipient->[META][EVENT]{$event};
+    die "Actor '$recipient->[OBJECT]': No handler for event '$event'"
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
-    return $code->( $actor->[OBJECT], defined $args ? @$args : () );
+    return $code->( $recipient->[OBJECT], $sender->[OBJECT], defined $args ? @$args : () );
 }
 
 sub actor_send {
-    my ($actor, $event, $args) = @_;
+    my ($sender, $recipient, $event, $args) = @_;
 
-    if ( my $url = $actor->[URL] ) {
+    while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
+        my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
+        die "Actor reference '$recipient->[OBJECT]' can't be resolved to local actor"
+            unless defined $next;
+        $recipient = $next;
+    }
+
+    if ( my $url = $recipient->[URL] ) {
         my $h = node_handle($url); my $ha = refaddr $h;
-        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args ]);
+        $sender = $sender->[ALIAS] || refaddr $sender->[OBJECT];
+        $recipient = substr( $url->path, 1 );
+        $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);
     } else {
-        actor_dispatch( $actor, $event, $args );
+        actor_dispatch( $recipient, $sender, $event, $args );
     }
 
     return '0 but true';
 }
 
 sub actor_request {
-    my ($actor, $event, $args, $code) = @_;
+    my ($sender, $recipient, $event, $args, $code) = @_;
 
-    if ( my $url = $actor->[URL] ) {
+    while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
+        my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
+        die "Actor reference '$recipient->[OBJECT]' can't be resolved to local actor"
+            unless defined $next;
+        $recipient = $next;
+    }
+
+    if ( my $url = $recipient->[URL] ) {
         my ($h, $ha, $f, $fa);
 
         $h = node_handle($url);
@@ -242,10 +258,13 @@ sub actor_request {
         $HANDLE{$ha}[REFS]{$fa} = $f;
         weaken $HANDLE{$ha}[REFS]{$fa};
 
-        $h->push_write( $KERNEL->{'protocol'} => [ substr($url->path,1), $event, $args, $fa ]);
+        $sender = $sender->[ALIAS] || refaddr $sender->[OBJECT];
+        $recipient = substr( $url->path, 1 );
+        $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender, $fa ]);
+
         return $f;
     } else {
-        my @result = actor_dispatch( $actor, $event, $args );
+        my @result = actor_dispatch( $recipient, $sender, $event, $args );
         $code->( @result ) if $code;
         # FIXME think about returning something more appropriate
         return '0 but true';
@@ -332,22 +351,26 @@ sub node_read {
             return;
         }
 
-        my ($dest,$event,$args,$responder) = @$msg;
+        my ($dest,$event,$args,$sender,$responder) = @$msg;
         if ( !defined $dest || !defined $event ) {
             DEBUG && warn "Actor and event are required";
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "Actor and event are required" ]]);
             return;
         }
 
-        my $actor = actor_resolve($dest);
-        if ( !defined $actor ) {
+        my $recipient = actor_resolve($dest);
+        if ( !defined $recipient ) {
             DEBUG && warn "No such actor '$dest'";
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "No such actor '$dest'" ]]);
             return;
         }
 
+        # TODO To spawn or not to spawn ?
+        my $sender_url = $HANDLE{refaddr $h}[URL]->clone();
+        $sender_url->path("/$sender");
+
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-        my $result = eval { actor_dispatch( $actor, $event, $args ) };
+        my $result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
         DEBUG && $@ && warn $@;
 
         if ( defined $responder ) {

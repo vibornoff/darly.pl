@@ -22,6 +22,11 @@ my $testvar;
     event 'bar' => sub {
         return $testvar = $_[-1];
     };
+
+    event 'baz' => sub {
+        shift;
+        $testvar = $_[0];
+    };
 }
 
 my $anonymous = TestActor->spawn();
@@ -33,17 +38,23 @@ ok( $anonymous = 1, "Dereference anonymous actor" );
 my $aliased = TestActor->spawn('aliased');
 ok( $aliased, "Spawn aliased actor" );
 
-ok( $aliased->send( 'bar', [ 'blah' ]), "Send event to actor" );
-ok( $testvar eq 'blah', "\$testvar got right value" );
+ok( $aliased->send( undef, 'bar', [ 'blah' ]), "Send 'bar' event to actor" );
+ok( $testvar eq 'blah', "\$testvar got right value 'blah'" );
 
-ok( $aliased->request( 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
-ok( $testvar eq 'damn', "\$testvar got right value" );
+ok( $aliased->send( undef, 'baz', [ ]), "Send 'baz' event to actor" );
+ok( $testvar eq $aliased, "\$testvar got right value '$aliased'" );
+
+ok( $aliased->request( undef, 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
+ok( $testvar eq 'damn', "\$testvar got right value 'damn'" );
 
 my $nearref = TestActor->reference('darly:///aliased');
 ok( $nearref,                                               'Create near reference'     );
 ok( $nearref->url->path eq '/aliased',                      'Local url path correct'    );
 ok( !defined $nearref->url->host,                           'Local url host undefined'  );
 ok( !defined $nearref->url->port,                           'Local url port undefined'  );
+
+ok( $nearref->send( undef, 'bar', [ 'woof!' ]), "Send 'bar' event to actor reference" );
+ok( $testvar eq 'woof!', "\$testvar got right value 'woof!'" );
 
 my $farref = TestActor->reference('darly://1.2.3.4:444/foo');
 ok( $farref,                                                'Create far reference'      );

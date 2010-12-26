@@ -422,7 +422,7 @@ __END__
 
 META ::= { Package -> ( Package, EVENTS{ event -> code }, TOPICS{ topic -> 1 } ) }
 
-ACTOR ::= { refaddr<Obj> -> ( Meta, Obj, url, SUBS{ topic -> { refaddr<code> -> code } } ) }
+ACTOR ::= { refaddr<Obj> -> ( Meta, url, Obj, alias, SUBS{ topic -> { refaddr<code> -> code } } ) }
 
 ALIAS ::= { alias -> { refaddr<Obj> -> Obj } }
 

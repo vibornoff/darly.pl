@@ -16,7 +16,7 @@ use strict;
 use warnings;
 
 # Turn debug tracing on/off
-use constant DEBUG => 1;
+use constant DEBUG => $ENV{DARLY_DEBUG} || 0;
 
 # Actor class meta
 my %META;

@@ -6,6 +6,8 @@ use warnings;
 
 use Test::More;
 
+use_ok('URI::darly');
+
 use_ok('DARLY');
 use_ok('DARLY::kernel');
 use_ok('DARLY::actor');
@@ -37,16 +39,17 @@ ok( $testvar eq 'blah', "\$testvar got right value" );
 ok( $aliased->request( 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
 ok( $testvar eq 'damn', "\$testvar got right value" );
 
-my $farref = Syntax->reference('darly://127.0.0.1:6444/foo');
-ok( $farref,                                                'Create reference'      );
-ok( substr($farref->url->path, 1) eq 'foo',                 'Remote path correct'   );
-ok( $farref->url->host eq '127.0.0.1',                      'Remote host correct'   );
-ok( $farref->url->port eq '6444',                           'Remote port correct'   );
+my $nearref = Syntax->reference('darly:///aliased');
+ok( $nearref,                                               'Create near reference'     );
+ok( $nearref->url->path eq '/aliased',                      'Local url path correct'    );
+ok( !defined $nearref->url->host,                           'Local url host undefined'  );
+ok( !defined $nearref->url->port,                           'Local url port undefined'  );
 
-ok( $farref->url('darly://1.2.3.4:444/bar'),                'Change url for actor'  );
-ok( substr($farref->url->path, 1) eq 'bar',                 'Remote path correct'   );
-ok( $farref->url->host eq '1.2.3.4',                        'Remote host correct'   );
-ok( $farref->url->port eq '444',                            'Remote port correct'   );
+my $farref = Syntax->reference('darly://1.2.3.4:444/foo');
+ok( $farref,                                                'Create far reference'      );
+ok( $farref->url->path eq '/foo',                           'Remote url path correct'   );
+ok( $farref->url->host eq '1.2.3.4',                        'Remote url host correct'   );
+ok( $farref->url->port eq '444',                            'Remote url port correct'   );
 
 ok( $aliased->shutdown() || 1, "Shutdown actor" );
 

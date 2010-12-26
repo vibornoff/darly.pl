@@ -207,7 +207,10 @@ sub actor_dispatch {
     die "Actor '$recipient->[OBJECT]': No handler for event '$event'"
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
-    return $code->( $recipient->[OBJECT], $sender->[OBJECT], defined $args ? @$args : () );
+    $sender = $sender->[OBJECT] if ref $sender;
+    $recipient = $recipient->[OBJECT];
+
+    return $code->( $recipient, $sender, defined $args ? @$args : () );
 }
 
 sub actor_send {

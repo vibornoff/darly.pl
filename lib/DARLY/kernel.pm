@@ -8,6 +8,7 @@ use AnyEvent::Handle;
 use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
+use Try::Tiny;
 
 use DARLY::actor;
 use DARLY::future;
@@ -204,7 +205,7 @@ sub actor_dispatch {
     my ($recipient, $sender, $event, $args) = @_;
 
     my $code = $recipient->[META][EVENT]{$event};
-    die "Actor '$recipient->[OBJECT]': No handler for event '$event'"
+    DARLY::DispatchException->throw("$recipient->[OBJECT]: No handler for event '$event'")
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
     $sender = $sender->[OBJECT] if ref $sender eq 'ARRAY';
@@ -218,7 +219,7 @@ sub actor_send {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        die "Actor reference '$recipient->[OBJECT]' can't be resolved to local actor"
+        DARLY::DispatchException->throw("$recipient->[OBJECT]: can't resolve to local actor")
             unless defined $next;
         $recipient = $next;
     }
@@ -240,7 +241,7 @@ sub actor_request {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        die "Actor reference '$recipient->[OBJECT]' can't be resolved to local actor"
+        DARLY::DispatchException->throw("$recipient->[OBJECT]: can't resolve to local actor")
             unless defined $next;
         $recipient = $next;
     }
@@ -371,25 +372,32 @@ sub node_read {
         my $sender_url = $HANDLE{refaddr $h}[URL]->clone();
         $sender_url->path("/$sender");
 
-        $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-        my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
-        DEBUG && $@ && warn $@;
+        my $error;
+        my @result = try {
+            $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
+            actor_dispatch( $recipient, $sender_url, $event, $args )
+        } catch {
+            $error = shift;
+            DEBUG && warn $error;
+            if ( defined $responder ) {
+                my @error_args = ( ref $error && blessed $error && $error->isa('DARLY::exception') )
+                                ? ( $error->id, $error->message )
+                                : ( DARLY::exception->ATTRS->{id}{default}, "$error" );
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ @error_args ]]);
+            }
+        };
 
         if ( defined $responder ) {
-            if ( $@ ) {
-                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ $@ ]]);
+            if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
+                my $ha = refaddr $h;
+                my $ra = refaddr $result[0];
+                $HANDLE{$ha}[REFS]{$ra} = $result[0];
+                $result[0]->cv->cb( sub {
+                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
+                    delete $HANDLE{$ha}[REFS]{$ra};
+                });
             } else {
-                if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
-                    my $ha = refaddr $h;
-                    my $ra = refaddr $result[0];
-                    $HANDLE{$ha}[REFS]{$ra} = $result[0];
-                    $result[0]->cv->cb( sub {
-                        $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
-                        delete $HANDLE{$ha}[REFS]{$ra};
-                    });
-                } else {
-                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
-                }
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
             }
         }
     });

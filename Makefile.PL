@@ -9,6 +9,8 @@ requires        'lib::abs';
 requires        'Getopt::Std';
 requires        'URI';
 requires        'AnyEvent';
+requires        'Try::Tiny';
+requires        'Exception::Base';
 
 test_requires   'Test::More';
 

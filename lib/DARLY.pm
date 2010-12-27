@@ -2,12 +2,26 @@ package DARLY;
 
 our $VERSION = '0.00';
 
-use strict;
-use warnings;
-
 use DARLY::kernel;
 use DARLY::actor;
 use DARLY::future;
+use DARLY::exception;
+
+use strict;
+use warnings;
+
+use Exception::Base
+(
+    'DARLY::IOException' => {
+        isa => 'DARLY::exception',
+        id => 'IO',
+    },
+
+    'DARLY::DispatchException' => {
+        isa => 'DARLY::exception',
+        id => 'Dispatch',
+    },
+);
 
 sub import {
     my $caller = (caller)[0];

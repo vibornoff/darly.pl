@@ -8,10 +8,10 @@ use AnyEvent::Handle;
 use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
-use Try::Tiny;
 
 use DARLY::actor;
 use DARLY::future;
+use DARLY::error;
 
 use strict;
 use warnings;
@@ -205,7 +205,7 @@ sub actor_dispatch {
     my ($recipient, $sender, $event, $args) = @_;
 
     my $code = $recipient->[META][EVENT]{$event};
-    DARLY::DispatchException->throw("$recipient->[OBJECT]: No handler for event '$event'")
+    die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
     $sender = $sender->[OBJECT] if ref $sender eq 'ARRAY';
@@ -219,7 +219,7 @@ sub actor_send {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        DARLY::DispatchException->throw("$recipient->[OBJECT]: can't resolve to local actor")
+        die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
             unless defined $next;
         $recipient = $next;
     }
@@ -241,7 +241,7 @@ sub actor_request {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        DARLY::DispatchException->throw("$recipient->[OBJECT]: can't resolve to local actor")
+        die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
             unless defined $next;
         $recipient = $next;
     }
@@ -329,7 +329,7 @@ sub node_disconnect {
     delete $NODE{$url}{refaddr $handle};
     delete $NODE{$url} if !keys %{$NODE{$url}};
 
-    actor_dispatch( $_, 'error', [ "Node disconnected" . ( $message ? ": $message" : '' ) ])
+    actor_dispatch( $_, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
         for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
 
     $handle->destroy();
@@ -357,14 +357,14 @@ sub node_read {
         my ($dest,$event,$args,$sender,$responder) = @$msg;
         if ( !defined $dest || !defined $event ) {
             DEBUG && warn "Actor and event are required";
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "Actor and event are required" ]]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ 'DispatchError', "Actor and event are required" ]]);
             return;
         }
 
         my $recipient = actor_resolve($dest);
         if ( !defined $recipient ) {
             DEBUG && warn "No such actor '$dest'";
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ "No such actor '$dest'" ]]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ 'DispatchError', "No such actor '$dest'" ]]);
             return;
         }
 
@@ -372,20 +372,18 @@ sub node_read {
         my $sender_url = $HANDLE{refaddr $h}[URL]->clone();
         $sender_url->path("/$sender");
 
-        my $error;
-        my @result = try {
+        my @result = eval {
             $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-            actor_dispatch( $recipient, $sender_url, $event, $args )
-        } catch {
-            $error = shift;
-            DEBUG && warn $error;
-            if ( defined $responder ) {
-                my @error_args = ( ref $error && blessed $error && $error->isa('DARLY::exception') )
-                                ? ( $error->id, $error->message )
-                                : ( DARLY::exception->ATTRS->{id}{default}, "$error" );
-                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ @error_args ]]);
-            }
+            actor_dispatch( $recipient, $sender_url, $event, $args );
         };
+        if ($@) {
+            my $error = $@;
+            DEBUG && warn $error;        
+            if ( defined $responder ) {
+                $error = [ 'Error', $error ] if !ref $error || reftype $error ne 'ARRAY';
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', $error ]);
+            }
+        }
 
         if ( defined $responder ) {
             if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {

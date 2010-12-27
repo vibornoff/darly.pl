@@ -56,23 +56,13 @@ ok( !defined $nearref->url->port,                           'Local url port unde
 ok( $nearref->send( undef, 'bar', [ 'woof!' ]), "Send 'bar' event to actor reference" );
 ok( $testvar eq 'woof!', "\$testvar got right value 'woof!'" );
 
-{
-    use Try::Tiny;
-    use Scalar::Util qw(blessed);
-
-    try {
-        $nearref->send( undef, 'zap', [] );
-    } catch {
-        my $e = shift;
-        my $text = "Send to non-existent event hahdler: got $e";
-        if ( ref $e && blessed $e && $e->isa('DARLY::DispatchException')
-                && $e->id eq 'Dispatch' )
-        {
-            pass($text);
-        } else {
-            fail($text);
-        }
-    };
+my $test = "Send to non-existent event hahdler";
+eval { $nearref->send( undef, 'zap', [] ) };
+$test .= $@ ? ": got $@" : '';
+if ( ref $@ && $@->[0] eq 'DispatchError' ) {
+    pass($test);
+} else {
+    fail($test);
 }
 
 my $farref = TestActor->reference('darly://1.2.3.4:444/foo');

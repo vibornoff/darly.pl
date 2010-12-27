@@ -1,6 +1,8 @@
 package DARLY::exception;
 use base 'Exception::Base';
 
+our $VERSION = '0.01';
+
 use strict;
 use warnings;
 

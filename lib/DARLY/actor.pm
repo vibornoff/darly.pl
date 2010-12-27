@@ -88,7 +88,7 @@ sub request {
 
     croak "Recipient required" if !defined $rcpt;
     my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
-                    ? DARLY::kernel::actor_get($self)
+                    ? DARLY::kernel::actor_get($rcpt)
                     : DARLY::kernel::actor_spawn( 'DARLY::actor', DARLY::actor->new(), URI->new($rcpt) );
     croak "Can't request event to non-spawned actor '$rcpt'"
         unless defined $recipient;

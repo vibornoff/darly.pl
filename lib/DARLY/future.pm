@@ -15,7 +15,7 @@ my %INNER;
 sub new {
     my $class = shift; $class = ref $class || $class;
     my $inner = [ AE::cv(), @_ ];
-    my $self = bless sub { $inner->[CV]->send( 'result', $inner->[CODE]->(@_) ) }, $class;
+    my $self = bless sub { $inner->[CV]->send( 'result', [ $inner->[CODE]->(@_) ] ) }, $class;
     $INNER{refaddr $self} = $inner;
     return $self;
 }
@@ -30,14 +30,14 @@ sub DESTROY {
 sub result {
     my $self = shift;
     my $inner = $INNER{refaddr $self};
-    $inner->[CV]->send( 'result', $inner->[CODE]->(@_) );
+    $inner->[CV]->send( 'result', [ $inner->[CODE]->(@_) ] );
 }
 
 sub error {
     my $self = shift;
     my $inner = $INNER{refaddr $self};
     local $@ = $_[-1];
-    $inner->[CV]->send( 'error', $inner->[CODE]->(@_) );
+    $inner->[CV]->send( 'error', [ $inner->[CODE]->(@_) ] );
 }
 
 sub cv {

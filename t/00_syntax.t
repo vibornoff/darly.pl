@@ -71,7 +71,7 @@ my ($t,$f);
     $t = AE::timer 3, 0, $f = future { 3 };
 }
 ok ( $f, "Create future object" );
-ok ( join('',$f->cv->recv) eq 'result3', "Wait future for 3 sec" );
+ok ( ($f->cv->recv)[0] eq 'result' && ($f->cv->recv)[1][0] eq '3',  "Wait future for 3 sec" );
 
 DARLY::run();
 

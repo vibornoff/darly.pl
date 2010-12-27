@@ -373,23 +373,23 @@ sub node_read {
         $sender_url->path("/$sender");
 
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-        my $result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+        my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
         DEBUG && $@ && warn $@;
 
         if ( defined $responder ) {
             if ( $@ ) {
                 $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ $@ ]]);
             } else {
-                if ( ref $result && blessed $result && $result->isa('DARLY::future') ) {
+                if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
                     my $ha = refaddr $h;
-                    my $ra = refaddr $result;
-                    $HANDLE{$ha}[REFS]{$ra} = $result;
-                    $result->cv->cb( sub {
+                    my $ra = refaddr $result[0];
+                    $HANDLE{$ha}[REFS]{$ra} = $result[0];
+                    $result[0]->cv->cb( sub {
                         $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
                         delete $HANDLE{$ha}[REFS]{$ra};
                     });
                 } else {
-                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', $result ]);
+                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
                 }
             }
         }

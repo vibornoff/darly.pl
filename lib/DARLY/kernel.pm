@@ -269,8 +269,7 @@ sub actor_request {
     } else {
         my @result = actor_dispatch( $recipient, $sender, $event, $args );
         $code->( @result ) if $code;
-        # FIXME think about returning something more appropriate
-        return '0 but true';
+        return @result;
     }
 }
 

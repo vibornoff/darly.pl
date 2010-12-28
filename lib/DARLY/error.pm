@@ -8,7 +8,10 @@ use constant MESSAGE => 1;
 use constant FILE   => 2;
 use constant LINE   => 3;
 
-use overload '""' => \&stringify;
+use overload (
+    '""' => \&stringify,
+    fallback => 1,
+);
 
 sub new {
     my ($class, $error, $message) = @_;
@@ -20,7 +23,8 @@ sub new {
 
 sub stringify {
     my $self = shift;
-    sprintf '%s: %s at %s line %d.', @$self;
+    return $self unless ref $self;
+    return sprintf '%s: %s at %s line %d.', @$self;
 }
 
 1;

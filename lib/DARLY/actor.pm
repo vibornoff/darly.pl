@@ -1,13 +1,21 @@
 package DARLY::actor;
 
 use Carp;
-use Scalar::Util qw( reftype blessed );
+use Scalar::Util qw( refaddr reftype blessed );
 use URI;
 
 require DARLY::kernel;
 
 use strict;
 use warnings;
+
+# Turn debug tracing on/off
+use constant DEBUG => $ENV{DARLY_DEBUG} || 0;
+
+use overload (
+    '""' => \&stringify,
+    fallback => 1,
+);
 
 sub new {
     my $class = shift; $class = ref $class || $class;
@@ -17,6 +25,22 @@ sub new {
 sub DESTROY {
     my $self = shift;
     $self->shutdown();
+}
+
+sub stringify {
+    my $self = shift;
+    return $self unless ref $self;
+
+    my $actor = DARLY::kernel::actor_get($self);
+    return $self unless defined $actor;
+
+    if ( my $url = DARLY::kernel::actor_url($actor) ) {
+        return "$url";
+    } elsif ( my $alias = DARLY::kernel::actor_alias($actor) ) {
+        return 'darly:///' . $alias . ( DEBUG ? '#' . blessed($self) : '' );
+    } else {
+        return 'darly:///' . refaddr($self) . ( DEBUG ? '#' . blessed($self) : '' );
+    }
 }
 
 sub spawn {

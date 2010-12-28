@@ -58,7 +58,7 @@ ok( $testvar eq 'woof!', "\$testvar got right value 'woof!'" );
 
 my $test = "Send to non-existent event hahdler";
 eval { $nearref->send( undef, 'zap', [] ) };
-$test .= $@ ? ": got $@" : '';
+$test .= $@ ? ": $@" : '';
 if ( ref $@ && $@->[0] eq 'DispatchError' ) {
     pass($test);
 } else {

@@ -53,26 +53,25 @@ Readonly our $MAX_BUF_SIZE  => 2**20;   # 1 MiB
 my $KERNEL;
 
 sub run {
-    my %opts = @_;
+    my %opt = @_;
 
     # Kernel options
-    #$KERNEL->{'tracker'}    = $opts{'tracker'}  || undef;
-    $KERNEL->{'bind'}       = $opts{'bind'}     || undef;
-    $KERNEL->{'port'}       = $opts{'port'}     || $DEFAULT_PORT;
-    $KERNEL->{'protocol'}   = $opts{'protocol'} || $DEFAULT_PROTOCOL;
+    #$KERNEL->{'tracker'}    = $opt{'tracker'}  || undef;
+    $KERNEL->{'protocol'}   = $opt{'protocol'} || $DEFAULT_PROTOCOL;
 
     # Register kernel Actor
     my $KERNEL_CLASS = __PACKAGE__;
     $ACTOR{$KERNEL_ID} = [ $META{$KERNEL_CLASS}, undef, $KERNEL, undef ];
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
-    # Start listenting
-    $KERNEL->{'server'} = tcp_server( $KERNEL->{'bind'}, $KERNEL->{'port'} => \&node_connect );
+    # Start listenting if need
+    push @{$KERNEL->{'server'}}, tcp_server( $_->[0], $_->[1] => \&node_connect )
+        for @{$opt{'listen'}||[]};
 
     # Connect tracker if need
-    #if ( $opts{tracker} ) {
-    #    my ($h,$p) = parse_hostport( $opts{tracker}, $DEFAULT_PORT );
-    #    $kernel->{tracker} = tcp_connect( $h, $p => \&_tracker_connect );
+    #if ( $opt{'tracker'} ) {
+    #    my ($h,$p) = @{$opt{'tracker'}};
+    #    $KERNEL->{tracker} = tcp_connect( $h, $p => \&_tracker_connect );
     #}
 
     DEBUG && warn "Run kernel event loop";

@@ -1,0 +1,56 @@
+#!/usr/bin/env perl
+use lib::abs qw( ../lib );
+
+use Getopt::Long;
+use Pod::Usage;
+use DARLY;
+
+use strict;
+use warnings;
+
+my %opt;
+my $res = GetOptions( \%opt,
+                'help|h',
+                'listen|l:s@',
+            );
+
+pod2usage(2) unless $res;
+pod2usage(1) if $opt{help};
+
+if ( @ARGV > 0 ) {
+    my $script = shift @ARGV;
+    $0 = $script . join '', map { " $_" } @ARGV;
+    do $script;
+}
+
+DARLY::run(%opt);
+
+exit 0;
+
+__END__
+
+=head1 NAME
+
+darly - DARLY node
+
+=head1 SYNOPSIS
+
+ darly [options] [--] [file [arg ...]]
+ 
+ Options:
+    --listen, -l    Listen the specified <address:port> (defaults to 0.0.0.0:12345)
+                    accepting connections from other nodes
+ 
+    --help, -h      Print a breaf help message and exit
+ 
+ File argument is assumed to be a filename of a perl script to be run in DARLY environment.
+ 
+ Zero or more arguments can be passed to @ARGV of the specified perl script.
+
+=head1 DESCRIPTIION
+
+=head1 AUTHOR
+
+Artem S Vybornov <vybornov@gmail.com>
+
+=cut

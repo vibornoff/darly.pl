@@ -2,6 +2,8 @@ package DARLY;
 
 our $VERSION = '0.00';
 
+use AnyEvent::Socket;
+
 use DARLY::kernel;
 use DARLY::actor;
 use DARLY::future;
@@ -29,7 +31,26 @@ sub import {
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { DARLY::future->new(@_) }
 
-*run = *DARLY::kernel::run;
+sub run(%) {
+    my %opt = @_;
+
+    # Process 'listen' option
+    if ( exists $opt{listen} ) {
+        my %addr;
+        for my $addr ( @{$opt{listen}} ) {
+            if ( $addr ) {
+                my ($host,$port) = parse_hostport $addr;
+                die "Can't listen '$addr': bad address" if !defined $host;
+                $addr{$host,$port} = [ $host, $port ];
+            } else {
+                $addr{':'} = [ undef, ${DARLY::kernel::DEFAULT_PORT} ];
+            }
+        }
+        $opt{listen} = [ values %addr ];
+    }
+
+    DARLY::kernel::run(%opt);
+}
 
 1;
 

@@ -176,7 +176,7 @@ sub actor_url {
     my ($actor, $url) = @_;
 
     if ( @_ > 1 ) {
-        $actor->[URL] = ref $url ? $url : URI->new($url);
+        $actor->[URL] = $url;
     }
 
     return $actor->[URL];
@@ -281,12 +281,9 @@ sub node_handle {
     my $url = shift;
     my $handle;
 
-    # FIXME too heavy :-/
-    $url = URI->new($url) unless ref $url;
-    $url = sprintf("darly://%s:%d/", $url->host, $url->port);
-
-    if ( $NODE{$url}  && keys %{$NODE{$url}} ) {
-        $handle = (values %{$NODE{$url}})[0][HANDLE];
+    my $authority = $url->authority;
+    if ( $NODE{$authority} && keys %{$NODE{$authority}} ) {
+        $handle = (values %{$NODE{$authority}})[0][HANDLE];
     } else {
         $handle = AnyEvent::Handle->new(
             connect => [ $url->host, $url->port ],
@@ -296,7 +293,7 @@ sub node_handle {
         );
 
         $HANDLE{refaddr $handle} =
-        $NODE{$url}{refaddr $handle} =
+        $NODE{$authority}{refaddr $handle} =
             [ $handle, $url, 0, 0, {} ];
     }
 
@@ -304,7 +301,7 @@ sub node_handle {
 }
 
 sub node_connect {
-    my ($handle, $addr, $port) = @_;
+    my ($handle, $host, $port) = @_;
 
     $handle = AnyEvent::Handle->new(
         fh => $handle,
@@ -313,9 +310,9 @@ sub node_connect {
         on_read => \&node_read,
     );
 
-    my $url = URI->new("darly://$addr:$port/");
+    my $url = URI->new("darly://$host:$port/");
     $HANDLE{refaddr $handle} =
-    $NODE{$url}{refaddr $handle} =
+    $NODE{$url->authority}{refaddr $handle} =
         [ $handle, $url, 0, 0, {} ];
 
     DEBUG && warn "Node $url connected";
@@ -329,8 +326,9 @@ sub node_disconnect {
     return unless defined $entry;
 
     my $url = $entry->[URL];
-    delete $NODE{$url}{refaddr $handle};
-    delete $NODE{$url} if !keys %{$NODE{$url}};
+    my $authority = $url->authority;
+    delete $NODE{$authority}{refaddr $handle};
+    delete $NODE{$authority} if !keys %{$NODE{$authority}};
 
     actor_dispatch( $_, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
         for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
@@ -459,7 +457,7 @@ ACTOR ::= { refaddr<Obj> -> ( Meta, url, Obj, alias, SUBS{ topic -> { refaddr<co
 
 ALIAS ::= { alias -> { refaddr<Obj> -> Obj } }
 
-NODE ::= { url -> { refaddr<Handle> -> ( Handle, url, Nin, Nout, REFS{ refaddr<Obj> -> Obj } ) } }
+NODE ::= { authority<url> -> { refaddr<Handle> -> ( Handle, url, Nin, Nout, REFS{ refaddr<Obj> -> Obj } ) } }
 
 HANDLE ::= { refaddr<Handle>        -> ( Handle, url, Nin, Nout, REFS{ refaddr<Obj> -> Obj } ) ) }
 

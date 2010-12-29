@@ -77,6 +77,7 @@ sub url {
     my $self = shift;
     croak "Url '$_[0]' is empty" if defined $_[0] && !length $_[0];
     my $actor = DARLY::kernel::actor_get($self) or return;
+    $_[0] = URI->new($_[0]) if @_ > 0 && !ref $_[0];
     return DARLY::kernel::actor_url($actor,@_);
 }
 

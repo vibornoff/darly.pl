@@ -207,7 +207,7 @@ sub actor_dispatch {
     die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
-    $sender = $sender->[OBJECT] if ref $sender eq 'ARRAY';
+    $sender = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
     $recipient = $recipient->[OBJECT];
 
     return $code->( $recipient, $sender, defined $args ? @$args : () );
@@ -311,11 +311,12 @@ sub node_connect {
     );
 
     my $url = URI->new("darly://$host:$port/");
+    my $authority = $url->authority;
     $HANDLE{refaddr $handle} =
-    $NODE{$url->authority}{refaddr $handle} =
+    $NODE{$authority}{refaddr $handle} =
         [ $handle, $url, 0, 0, {} ];
 
-    DEBUG && warn "Node $url connected";
+    DEBUG && warn "Node $authority connected";
     return '0 but true';
 }
 
@@ -335,7 +336,7 @@ sub node_disconnect {
 
     $handle->destroy();
 
-    DEBUG && warn "Node $url disconnected" . ( $message ? ": $message" : '' );
+    DEBUG && warn "Node $authority disconnected" . ( $message ? ": $message" : '' );
     return '0 but true';
 }
 
@@ -370,8 +371,11 @@ sub node_read {
         }
 
         # TODO To spawn or not to spawn ?
-        my $sender_url = $HANDLE{refaddr $h}[URL]->clone();
-        $sender_url->path("/$sender");
+        my $sender_url;
+        if ( defined $sender ) {
+            $sender_url = $HANDLE{refaddr $h}[URL]->clone();
+            $sender_url->path("/$sender");
+        }
 
         my @result = eval {
             $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
@@ -381,7 +385,7 @@ sub node_read {
             my $error = $@;
             DEBUG && warn $error;        
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $sender, 'error', [ @{$error}[0..1] ]]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ @{$error}[0..1] ]]);
             return;
         }
 

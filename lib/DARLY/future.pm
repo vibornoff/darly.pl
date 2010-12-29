@@ -28,13 +28,13 @@ sub DESTROY {
 }
 
 sub result {
-    my $self = shift;
+    my $self = shift; shift; # sender
     my $inner = $INNER{refaddr $self};
     $inner->[CV]->send( 'result', [ $inner->[CODE]->(@_) ] );
 }
 
 sub error {
-    my $self = shift;
+    my $self = shift;  shift; # sender
     my $inner = $INNER{refaddr $self};
     local $@ = $_[-1];
     $inner->[CV]->send( 'error', [ $inner->[CODE]->(@_) ] );

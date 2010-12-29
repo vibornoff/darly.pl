@@ -281,6 +281,10 @@ sub node_handle {
     my $url = shift;
     my $handle;
 
+    # FIXME too heavy :-/
+    $url = URI->new($url) unless ref $url;
+    $url = sprintf("darly://%s:%d/", $url->host, $url->port);
+
     if ( $NODE{$url}  && keys %{$NODE{$url}} ) {
         $handle = (values %{$NODE{$url}})[0][HANDLE];
     } else {

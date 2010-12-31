@@ -24,7 +24,7 @@ sub DESTROY {
     my $self = shift;
     my $inner = delete $INNER{refaddr $self};
     $self->shutdown();
-    $inner->[CV]->send( $inner->[CODE]->() );
+    $inner->[CV]->send( $inner->[CODE]->() ) unless $inner->[CV]->ready;
 }
 
 sub result {

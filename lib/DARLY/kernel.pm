@@ -45,11 +45,11 @@ use constant NOUT   => 3;
 use constant REFS   => 4;
 
 # Kernel stuff
-Readonly our $KERNEL_ID     => 0;
-Readonly our $DEFAULT_PORT  => 12345;
-Readonly our $DEFAULT_PROTOCOL => 'json';
-Readonly our $MAX_MSG_SIZE  => 65536;   # 64 KiB
-Readonly our $MAX_BUF_SIZE  => 2**20;   # 1 MiB
+Readonly::Scalar our $KERNEL_ID         => 0;
+Readonly::Scalar our $DEFAULT_PORT      => 12345;
+Readonly::Scalar our $DEFAULT_PROTOCOL  => 'json';
+Readonly::Scalar our $MAX_MSG_SIZE      => 65536;   # 64 KiB
+Readonly::Scalar our $MAX_BUF_SIZE      => 2**20;   # 1 MiB
 my $KERNEL;
 
 sub run {

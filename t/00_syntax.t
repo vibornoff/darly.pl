@@ -69,15 +69,6 @@ ok( $farref->url->port eq '444',                            'Remote url port cor
 
 ok( $aliased->shutdown() || 1, "Shutdown actor" );
 
-my ($t,$f);
-{
-    use AnyEvent;
-    use DARLY;
-    $t = AE::timer 3, 0, $f = future { 3 };
-}
-ok ( $f, "Create future object" );
-ok ( ($f->cv->recv)[0] eq 'result' && ($f->cv->recv)[1][0] eq '3',  "Wait future for 3 sec" );
-
 DARLY::run();
 
 done_testing();

@@ -6,12 +6,8 @@ use warnings;
 
 use Test::More;
 
-use_ok('URI::darly');
-
 use_ok('DARLY');
-use_ok('DARLY::kernel');
-use_ok('DARLY::actor');
-use_ok('DARLY::future');
+use_ok('URI::darly');
 
 my $testvar;
 {

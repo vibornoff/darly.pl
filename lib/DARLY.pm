@@ -35,18 +35,18 @@ sub run(%) {
     my %opt = @_;
 
     # Process 'listen' option
-    if ( exists $opt{listen} ) {
+    if ( exists $opt{'listen'} ) {
         my %addr;
-        for my $addr ( @{$opt{listen}} ) {
-            if ( $addr ) {
+        if ( ref $opt{'listen'} eq 'ARRAY' ) {
+            for my $addr ( @{$opt{'listen'}} ) {
                 my ($host,$port) = parse_hostport $addr;
                 die "Can't listen '$addr': bad address" if !defined $host;
                 $addr{$host,$port} = [ $host, $port ];
-            } else {
-                $addr{':'} = [ undef, ${DARLY::kernel::DEFAULT_PORT} ];
             }
+        } else {
+            $addr{':'} = [ undef, ${DARLY::kernel::DEFAULT_PORT} ];
         }
-        $opt{listen} = [ values %addr ];
+        $opt{'listen'} = [ values %addr ];
     }
 
     DARLY::kernel::run(%opt);

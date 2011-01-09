@@ -1,10 +1,11 @@
 #!/usr/bin/env perl
-use lib::abs qw( ../lib 00_syntax );
+use lib::abs qw( lib ../lib );
 
 use strict;
 use warnings;
 
 use Test::More;
+use Scalar::Util qw( refaddr );
 
 use_ok('DARLY');
 use_ok('URI::darly');
@@ -18,42 +19,15 @@ ok( $anonymous = 1, "Dereference anonymous actor" );
 
 my $aliased = TestActor->spawn('aliased');
 ok( $aliased, "Spawn aliased actor" );
+is( "$aliased", 'darly:///aliased', "Actor object stringifies into its URI" );
 
-ok( $aliased->send( undef, 'bar', [ 'blah' ]), "Send 'bar' event to actor" );
-ok( $testvar eq 'blah', "\$testvar got right value 'blah'" );
+my $ref = TestActor->reference('darly:///aliased');
+ok( $ref, "Create aliased actor reference" );
+isnt( refaddr $ref, refaddr $aliased, "Actor and its reference aren't the same object" );
 
-ok( $aliased->send( undef, 'baz', [ ]), "Send 'baz' event to actor" );
-ok( $testvar eq $aliased, "\$testvar got right value '$aliased'" );
+is( $aliased->url, undef, "Actor's URI is undefined" );
+is( $ref->url, 'darly:///aliased', "Reference's URI is correct" );
 
-ok( $aliased->request( undef, 'bar', [ 'blah' ] => sub { $testvar = 'damn'  }), "Request actor's event" );
-ok( $testvar eq 'damn', "\$testvar got right value 'damn'" );
-
-my $nearref = TestActor->reference('darly:///aliased');
-ok( $nearref,                                               'Create near reference'     );
-ok( $nearref->url->path eq '/aliased',                      'Local url path correct'    );
-ok( !defined $nearref->url->host,                           'Local url host undefined'  );
-ok( !defined $nearref->url->port,                           'Local url port undefined'  );
-
-ok( $nearref->send( undef, 'bar', [ 'woof!' ]), "Send 'bar' event to actor reference" );
-ok( $testvar eq 'woof!', "\$testvar got right value 'woof!'" );
-
-my $test = "Send to non-existent event hahdler";
-eval { $nearref->send( undef, 'zap', [] ) };
-$test .= $@ ? ": $@" : '';
-if ( ref $@ && $@->[0] eq 'DispatchError' ) {
-    pass($test);
-} else {
-    fail($test);
-}
-
-my $farref = TestActor->reference('darly://1.2.3.4:444/foo');
-ok( $farref,                                                'Create far reference'      );
-ok( $farref->url->path eq '/foo',                           'Remote url path correct'   );
-ok( $farref->url->host eq '1.2.3.4',                        'Remote url host correct'   );
-ok( $farref->url->port eq '444',                            'Remote url port correct'   );
-
-ok( $aliased->shutdown() || 1, "Shutdown actor" );
-
-DARLY::run();
+ok( $aliased->shutdown(), "Shutdown actor" );
 
 done_testing();

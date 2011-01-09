@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use lib::abs qw( ../lib );
+use lib::abs qw( lib ../lib );
 
 use strict;
 use warnings;

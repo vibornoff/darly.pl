@@ -50,17 +50,19 @@ Readonly::Scalar our $DEFAULT_PORT      => 12345;
 Readonly::Scalar our $DEFAULT_PROTOCOL  => 'json';
 Readonly::Scalar our $MAX_MSG_SIZE      => 65536;   # 64 KiB
 Readonly::Scalar our $MAX_BUF_SIZE      => 2**20;   # 1 MiB
-my $KERNEL;
+my ($KERNEL, $LOOP);
 
-sub run {
+sub init {
     my %opt = @_;
+
+    my $KERNEL_CLASS = __PACKAGE__;
+    $KERNEL = bless {}, $KERNEL_CLASS;
 
     # Kernel options
     #$KERNEL->{'tracker'}    = $opt{'tracker'}  || undef;
     $KERNEL->{'protocol'}   = $opt{'protocol'} || $DEFAULT_PROTOCOL;
 
     # Register kernel Actor
-    my $KERNEL_CLASS = __PACKAGE__;
     $ACTOR{$KERNEL_ID} = [ $META{$KERNEL_CLASS}, undef, $KERNEL, undef ];
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
@@ -74,15 +76,21 @@ sub run {
     #    $KERNEL->{tracker} = tcp_connect( $h, $p => \&_tracker_connect );
     #}
 
-    DEBUG && warn "Run kernel event loop";
-    $KERNEL->{'loop'}->begin();
-    $KERNEL->{'loop'}->recv();
+    DEBUG && warn "Kernel initialized";
+
     return '0 but true';
 }
 
+sub loop {
+    DEBUG && warn "Enter kernel event loop";
+    init() if !$KERNEL;
+    $LOOP = AE::cv();
+    return $LOOP->recv();
+}
+
 sub shutdown {
-    DEBUG && warn "Shutdown kernel event loop";
-    $KERNEL->{'loop'}->send();
+    DEBUG && warn "Exit kernel event loop";
+    $LOOP->send(@_);
     return '0 but true';
 }
 
@@ -129,7 +137,6 @@ sub actor_spawn {
     weaken $actor->[OBJECT];
 
     DEBUG && warn "Spawn new actor $obj";
-    $KERNEL->{'loop'}->begin();
 
     return $actor;
 }
@@ -195,7 +202,6 @@ sub actor_shutdown {
     }
 
     DEBUG && warn "Shutdown actor $obj";
-    $KERNEL->{'loop'}->end();
 
     return '0 but true';
 }
@@ -424,7 +430,7 @@ sub kernel_error {
 }
 
 ###############################################################################
-# Kernel initialization
+# Static initialization
 ###############################################################################
 
 BEGIN {
@@ -439,8 +445,6 @@ BEGIN {
         result  => \&kernel_result,
         error   => \&kernel_error,
     }];
-
-    $KERNEL->{'loop'} = AE::cv();
 }
 
 1;

@@ -31,7 +31,7 @@ sub import {
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(&)   { DARLY::future->new(@_) }
 
-sub run(%) {
+sub init(%) {
     my %opt = @_;
 
     # Process 'listen' option
@@ -49,7 +49,20 @@ sub run(%) {
         $opt{'listen'} = [ values %addr ];
     }
 
-    DARLY::kernel::run(%opt);
+    DARLY::kernel::init(%opt);
+}
+
+sub loop() {
+    DARLY::kernel::loop();
+}
+
+sub run(%) {
+    init(@_);
+    loop();
+}
+
+sub shutdown(_) {
+    DARLY::kernel::shutdown();
 }
 
 1;
@@ -102,7 +115,7 @@ DARLY - Distributed Actor Runtime Library
     $client->send( 'say', 'MyNickName', $phrase );
  };
  
- DARLY::loop(); # or AE::cv->recv();
+ DARLY::run(); # or AE::cv->recv();
 
 =head1 DESCRIPTION
 

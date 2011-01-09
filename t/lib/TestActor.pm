@@ -30,4 +30,8 @@ event 'delayed_echo' => sub {
 
 # TODO dying event handler
 
+event 'bye' => sub {
+    DARLY::shutdown();
+};
+
 1;

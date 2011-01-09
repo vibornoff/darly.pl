@@ -409,23 +409,18 @@ sub node_read {
 # Kernel's actor event handlers
 ###############################################################################
 
+sub kernel_result {
+    DEBUG && do {
+        my (undef, $result) = @_;
+        warn "Got result from foreign node: $result";
+    }
+}
+
 sub kernel_error {
     DEBUG && do {
         my (undef, $error) = @_;
         warn "Got error from foreign node: $error";
     }
-}
-
-sub kernel_echo {
-    my (undef, $arg) = @_;
-    die "Expected" if rand(1) < 0.5;
-    return $arg;
-}
-
-sub kernel_delayed_echo {
-    my (undef, $delay, $arg) = @_;
-    my ($t,$f); $t = AE::timer $delay, 0, $f = 'DARLY::future'->new(sub{ undef $t; return $arg });
-    return $f;
 }
 
 ###############################################################################
@@ -441,9 +436,8 @@ BEGIN {
     }];
 
     $META{'DARLY::kernel'} = [ 'DARLY::kernel', {
-        error       => \&kernel_error,
-        echo        => \&kernel_echo,
-        delayed_echo => \&kernel_delayed_echo,
+        result  => \&kernel_result,
+        error   => \&kernel_error,
     }];
 
     $KERNEL->{'loop'} = AE::cv();

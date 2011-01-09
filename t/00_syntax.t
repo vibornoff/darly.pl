@@ -8,22 +8,7 @@ use Test::More;
 
 use_ok('DARLY');
 use_ok('URI::darly');
-
-my $testvar;
-{
-    package TestActor;
-    use DARLY;
-
-#    topic 'foo';
-    event 'bar' => sub {
-        return $testvar = $_[-1];
-    };
-
-    event 'baz' => sub {
-        shift;
-        $testvar = $_[0];
-    };
-}
+use_ok('TestActor');
 
 my $anonymous = TestActor->spawn();
 ok( $anonymous, "Spawn anonymous actor" );

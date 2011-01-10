@@ -41,4 +41,25 @@ ok( $f, "Request 'foo' event on far actor reference" );
 ok( $f->cv->recv(), "Wait for response" );
 is( ${TestActor::testvar}, 'poof!', "\$testvar got right value" );
 
+$test = "Request 'echo' event handler on far actor reference";
+$f = $farref->request( undef, 'echo', [ 'qwer' ], sub {
+    fail $test unless @_ > 0;
+    is( $_[0], 'qwer', $test );
+});
+ok( $f->cv->recv(), "Wait for response" );
+
+$test = "Request 'proxy_echo' event handler on far actor reference";
+$f = $farref->request( undef, 'proxy_echo', [ 'asdf' ], sub {
+    fail $test unless @_ > 0;
+    is( $_[0], 'asdf', $test );
+});
+ok( $f->cv->recv(), "Wait for response" );
+
+$test = "Request 'delayed_echo' event handler on far actor reference";
+$f = $farref->request( undef, 'delayed_echo', [ 3, 'zxcv' ], sub {
+    fail $test unless @_ > 0;
+    is( $_[0], 'zxcv', $test );
+});
+ok( $f->cv->recv(), "Wait for response" );
+
 done_testing();

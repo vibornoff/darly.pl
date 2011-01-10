@@ -18,14 +18,19 @@ event 'bar' => sub {
 };
 
 event 'echo' => sub {
-    my (undef, $arg) = @_;
+    my ($self, $sender, $arg) = @_;
     return $arg;
 };
 
 event 'delayed_echo' => sub {
-    my (undef, $delay, $arg) = @_;
-    my ($t,$f); $t = AE::timer $delay, 0, $f = 'DARLY::future'->new(sub{ undef $t; return $arg });
+    my ($self, $sender, $delay, $arg) = @_;
+    my ($t,$f); $t = AE::timer $delay, 0, $f = future { undef $t; return $arg };
     return $f;
+};
+
+event 'proxy_echo' => sub {
+    my ($self, $sender, $arg) = @_;
+    return $self->request( undef, 'echo', [ $arg ]);
 };
 
 # TODO dying event handler

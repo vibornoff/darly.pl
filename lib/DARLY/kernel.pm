@@ -210,7 +210,7 @@ sub actor_dispatch {
     my ($recipient, $sender, $event, $args) = @_;
 
     my $code = $recipient->[META][EVENT]{$event};
-    die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
+    DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
     $sender = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
@@ -224,7 +224,7 @@ sub actor_send {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
+        DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
             unless defined $next;
         $recipient = $next;
     }
@@ -246,7 +246,7 @@ sub actor_request {
 
     while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
         my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        die DARLY::error->new( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
+        DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
             unless defined $next;
         $recipient = $next;
     }

@@ -21,6 +21,10 @@ sub new {
     bless [ $error, $message, (caller)[1..2] ], $class;
 }
 
+sub throw {
+    die shift->new(@_);
+}
+
 sub stringify {
     my $self = shift;
     return $self unless ref $self;

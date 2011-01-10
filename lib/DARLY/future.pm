@@ -67,3 +67,28 @@ sub cv {
 }
 
 1;
+
+__END__
+
+=pod
+
+Let's assume we have an actor package with 'delayed_echo' handler that delays
+echoing back its arguments for the specified timeout. Here we hold reference
+to C<$t> in the future's callback to avoid dereferencing and destroying
+timer object before timeout is elapsed.
+
+ event 'delayed_echo' => sub {
+    my ($actor, $sender, $delay, $message) = @_;
+    my ($t,$f); $t = AE::timer $delay, 0, $f = future { $t = undef; return $message };
+    return $f;
+ }
+
+Take a look that the event handler returns the future object saying that request result
+would be available later. Now at other place we can request 'delayed_echo' event:
+
+ $actor->request(
+    'delayed_echo', [ 3, 'hello!' ]
+        => sub { say "Got $_[-1]" }
+ );
+
+=cut

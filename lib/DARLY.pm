@@ -2,6 +2,7 @@ package DARLY;
 
 our $VERSION = '0.00';
 
+use Carp;
 use AnyEvent::Socket;
 
 use DARLY::kernel;
@@ -40,7 +41,7 @@ sub init(%) {
         if ( ref $opt{'listen'} eq 'ARRAY' ) {
             for my $addr ( @{$opt{'listen'}} ) {
                 my ($host,$port) = parse_hostport $addr;
-                die "Can't listen '$addr': bad address" if !defined $host;
+                croak "Can't listen '$addr': bad address" if !defined $host;
                 $addr{$host,$port} = [ $host, $port ];
             }
         } else {
@@ -119,22 +120,54 @@ DARLY - Distributed Actor Runtime Library
 
 =head1 DESCRIPTION
 
-=head2 event
+TODO Write about Actor Model.
 
-=head2 topic
+=head1 METHODS
 
-=head2 future
+=head2 event $name [, \&handler ]
 
- event 'delayed_echo' => sub {
-    my ($actor, $delay, $message) = @_;
-    my ($t,$f); $t = AE::timer $delay, 0, $f = future { $t = undef; return $message };
-    return $f;
- }
+Declare new event with a name C<$name> and an optional handler callback C<\&handler>
+in the caller's package. Events are can be either notified by C<send> method
+or requested by C<request> method of an L<actor|DARLY::actor> object.
 
- $actor->request(
-    'delayed_echo', [ 3, 'hello!' ]
-        => sub { say "Got $_[-1]" }
- );
+C<event> is exported when DARLY is C<use>'ed.
+
+=head2 future [ \&callback ]
+
+Spawn new L<future|DARLY::future>-object with an optional filtering callback C<\&callback>.
+Future object can be returned from event handler saying that there is no immediatly
+available result, but that result would be available later.
+
+C<future> is exported when DARLY is C<use>'ed.
+
+=head2 init( %options )
+
+Initialize or reinitialize DARLY. Allowed options are:
+
+=over 4
+
+=item listen => 1 | \( "host:port", ... )
+
+Allow listening for inter-node connections. Expect reference to array of I<host:port>
+addresses to bind to. Other true value means to listen on default port I<12345>.
+
+=back
+
+=head2 loop()
+
+Enter into event loop.
+
+=head2 run( %options )
+
+Shorthand for C<init> and C<loop> calls.
+
+=head2 shutdown
+
+Exit from event loop.
+
+=head1 SEE ALSO
+
+L<POE>
 
 =head1 AUTHOR
 

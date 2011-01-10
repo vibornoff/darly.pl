@@ -29,7 +29,7 @@ sub import {
 
 #sub topic($)    { }
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
-sub future(&)   { DARLY::future->new(@_) }
+sub future(;&)  { unshift @_, 'DARLY::future'; goto \&DARLY::future::new }
 
 sub init(%) {
     my %opt = @_;

@@ -14,6 +14,10 @@ ok ( $f, "Create future object" );
 ok ( $f->isa('DARLY::actor'), "future is an actor" );
 ok ( $f = 1, "Dereference future object" );
 
+$f = future;
+ok( $f, "Create naked future object" );
+ok ( $f = 1, "Dereference naked future object" );
+
 my ($t,$r,$v);
 $t = AE::timer 3, 0, $f = future { 3 };
 ok ( $f, "Create delayed future object" );

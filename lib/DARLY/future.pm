@@ -15,10 +15,14 @@ my %INNER;
 
 sub _fire {
     my ($inner,$event) = splice @_, 0, 2;
-    $inner->[CV]->send( $event, [
-        $inner->[CB] ? ( $inner->[CB]->(@_) )
-                     : ( ),
-    ]);
+
+    if ( $inner->[CB] ) {
+        my $err = $@;
+        @_ = eval { local $@ = $err; $inner->[CB]->(@_) };
+        @_ = ( 'Error', $@ ) if $@;
+    }
+
+    $inner->[CV]->send( $event, \@_ );
 }
 
 sub new {

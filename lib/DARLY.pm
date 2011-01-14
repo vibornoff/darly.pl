@@ -1,6 +1,6 @@
 package DARLY;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 use Carp;
 use AnyEvent::Socket;

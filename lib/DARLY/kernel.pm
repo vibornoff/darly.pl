@@ -67,8 +67,11 @@ sub init {
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
     # Start listenting if need
-    push @{$KERNEL->{'server'}}, tcp_server( $_->[0], $_->[1] => \&node_connect )
-        for @{$opt{'listen'}||[]};
+    for my $addr (@{$opt{'listen'}||[]} ) {
+        push @{$KERNEL->{'server'}}, tcp_server( $addr->[0], $addr->[1] => \&node_connect );
+        DEBUG && warn "Listen $addr->[0]:$addr->[1]\n";
+    }
+
 
     # Connect tracker if need
     #if ( $opt{'tracker'} ) {

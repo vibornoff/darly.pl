@@ -135,7 +135,7 @@ C<event> is exported when DARLY is C<use>'ed.
 =head2 future [ \&callback ]
 
 Spawn new L<future|DARLY::future>-object with an optional filtering callback C<\&callback>.
-Future object can be returned from event handler saying that there is no immediatly
+Future object can be returned from event handler saying that there is no immediately
 available result, but that result would be available later.
 
 C<future> is exported when DARLY is C<use>'ed.

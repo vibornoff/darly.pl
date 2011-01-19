@@ -66,7 +66,7 @@ sub init {
     $ACTOR{$KERNEL_ID} = [ $META{$KERNEL_CLASS}, undef, $KERNEL, undef ];
     $ALIAS{'kernel'} = { $KERNEL_ID => $ACTOR{$KERNEL_ID} };
 
-    # Start listenting if need
+    # Start listening if need
     for my $addr (@{$opt{'listen'}||[]} ) {
         push @{$KERNEL->{'server'}}, tcp_server( $addr->[0], $addr->[1] => \&node_connect );
         DEBUG && warn "Listen $addr->[0]:$addr->[1]\n";

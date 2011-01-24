@@ -109,7 +109,7 @@ sub meta_extend {
     croak "Superclass required to extend from"
         if !defined $super;
 
-    $META{$class} = [ $class, { %{$META{$super}[EVENT]} }];
+    $META{$class} //= [ $class, { %{$META{$super}[EVENT]} }];
 }
 
 sub meta_event {

@@ -19,7 +19,7 @@ ok( $actor->request( undef, 'bar', [ ]), "Request 'bar' event on actor" );
 is( ${TestActor::testvar}, $actor, "\$testvar got right value" );
 
 my $test = "Request non-existent event hahdler on actor";
-eval { $actor->request( undef, 'zap', [] ) };
+$actor->request( undef, 'zap', [] );
 $test .= $@ ? ": $@" : '';
 if ( ref $@ && $@->[0] eq 'DispatchError' ) {
     pass($test);

@@ -238,7 +238,12 @@ sub actor_send {
         $recipient = substr( $url->path, 1 );
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);
     } else {
-        actor_dispatch( $recipient, $sender, $event, $args );
+        eval { actor_dispatch( $recipient, $sender, $event, $args ) };
+        if ( my $error = $@ ) {
+            DEBUG && warn $error;
+            $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
+            kernel_error( $KERNEL, undef, @{$error}[0..1] );
+        }
     }
 
     return '0 but true';
@@ -276,8 +281,15 @@ sub actor_request {
 
         return $f;
     } else {
-        @_ = actor_dispatch( $recipient, $sender, $event, $args );
-        goto $code if $code;
+        @_ = eval {
+            @_ = actor_dispatch( $recipient, $sender, $event, $args );
+            return $code ? $code->(@_) : @_;
+        };
+        if ( my $error = $@ ) {
+            DEBUG && warn $error;
+            $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
+            kernel_error( $KERNEL, undef, @{$error}[0..1] );
+        }
         return @_;
     }
 }
@@ -406,8 +418,7 @@ sub node_read {
             }
         };
 
-        if ($@) {
-            my $error = $@;
+        if ( my $error = $@ ) {
             DEBUG && warn $error;        
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ @{$error}[0..1] ]]);
@@ -420,17 +431,15 @@ sub node_read {
 ###############################################################################
 
 sub kernel_result {
-    DEBUG && do {
-        my (undef, $result) = @_;
-        warn "Got result from foreign node: $result";
-    }
+    splice @_, 0, 2;
+    DEBUG && warn "Got result: @_";
 }
 
 sub kernel_error {
-    DEBUG && do {
-        my (undef, $error) = @_;
-        warn "Got error from foreign node: $error";
-    }
+    splice @_, 0, 2;
+    ${DARLY::LastError} = $_[0];
+    ${DARLY::LastErrorMessage} = $_[1];
+    DEBUG && warn "Got error: $_[0]: $_[1]";
 }
 
 ###############################################################################

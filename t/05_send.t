@@ -19,7 +19,7 @@ ok( $actor->send( undef, 'bar', [ ]), "Send 'bar' event to actor" );
 is( ${TestActor::testvar}, $actor, "\$testvar got right value" );
 
 my $test = "Send to non-existent event hahdler";
-eval { $actor->send( undef, 'zap', [] ) };
+$actor->send( undef, 'zap', [] );
 $test .= $@ ? ": $@" : '';
 if ( ref $@ && $@->[0] eq 'DispatchError' ) {
     pass($test);

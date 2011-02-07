@@ -13,6 +13,9 @@ use DARLY::error;
 use strict;
 use warnings;
 
+our $LastError;
+our $LastErrorMessage;
+
 sub import {
     my $caller = (caller)[0];
     return if $caller =~ /^DARLY/;

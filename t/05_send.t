@@ -41,4 +41,13 @@ ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" 
 DARLY::loop();
 is( ${TestActor::testvar}, 'poof!', "\$testvar got right value" );
 
+ok( $actor->send( undef, 'check_context', []), "Send 'check_context' event to actor" );
+is( ${TestActor::testvar}, undef, "Context is void" );
+
+ok( $ref->send( undef, 'check_context', []), "Send 'check_context' event to actor reference" );
+is( ${TestActor::testvar}, undef, "Context is void" );
+
+ok( $farref->send( undef, 'check_context', []), "Send 'check_context' event to far actor reference" );
+is( ${TestActor::testvar}, undef, "Context is void" );
+
 done_testing();

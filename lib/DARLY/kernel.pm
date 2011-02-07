@@ -386,30 +386,31 @@ sub node_read {
             $sender_url->path("/$sender");
         }
 
-        my @result = eval {
+        eval {
             $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-            actor_dispatch( $recipient, $sender_url, $event, $args );
+            if ( defined $responder ) {
+                my @result = actor_dispatch( $recipient, $sender_url, $event, $args );
+                if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
+                    my $ha = refaddr $h;
+                    my $ra = refaddr $result[0];
+                    $HANDLE{$ha}[REFS]{$ra} = $result[0];
+                    $result[0]->cv->cb( sub {
+                        $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
+                        delete $HANDLE{$ha}[REFS]{$ra};
+                    });
+                } else {
+                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
+                }
+            } else {
+                actor_dispatch( $recipient, $sender_url, $event, $args );
+            }
         };
+
         if ($@) {
             my $error = $@;
             DEBUG && warn $error;        
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ @{$error}[0..1] ]]);
-            return;
-        }
-
-        if ( defined $responder ) {
-            if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
-                my $ha = refaddr $h;
-                my $ra = refaddr $result[0];
-                $HANDLE{$ha}[REFS]{$ra} = $result[0];
-                $result[0]->cv->cb( sub {
-                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
-                    delete $HANDLE{$ha}[REFS]{$ra};
-                });
-            } else {
-                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
-            }
         }
     });
 }

@@ -62,4 +62,15 @@ $f = $farref->request( undef, 'delayed_echo', [ 3, 'zxcv' ], sub {
 });
 ok( $f->cv->recv(), "Wait for response" );
 
+ok( $actor->request( undef, 'check_context', []), "Request 'check_context' event on actor" );
+is( ${TestActor::testvar}, 1, "Context is list" );
+
+ok( $ref->request( undef, 'check_context', []), "Request 'check_context' event on actor reference" );
+is( ${TestActor::testvar}, 1, "Context is list" );
+
+$test = "Request 'check_context' event on far actor reference";
+$f = $farref->request( undef, 'check_context', [], sub { fail $test if $@ || !@_ });
+ok( $f->cv->recv(), "Wait for response" );
+is( ${TestActor::testvar}, 1, "Context is list" );
+
 done_testing();

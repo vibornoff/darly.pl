@@ -33,6 +33,10 @@ event 'proxy_echo' => sub {
     return $self->request( undef, 'echo', [ $arg ]);
 };
 
+event 'check_context' => sub {
+    $testvar = wantarray;
+};
+
 # TODO dying event handler
 
 event 'bye' => sub {

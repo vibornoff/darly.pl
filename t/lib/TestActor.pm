@@ -18,8 +18,8 @@ event 'bar' => sub {
 };
 
 event 'echo' => sub {
-    my ($self, $sender, $arg) = @_;
-    return $arg;
+    splice @_, 0, 2;
+    return @_;
 };
 
 event 'delayed_echo' => sub {

@@ -27,6 +27,10 @@ if ( ref $@ && $@->[0] eq 'DispatchError' ) {
     fail($test);
 }
 
+my @res = $actor->request( undef, 'echo', [qw( 1 2 3 )], sub { reverse @_ });
+ok( @res > 0, "Request 'echo' event on actor with result filtering" );
+is( join('',@res), '321', "Got expected filtered result" );
+
 my $ref = TestActor->reference('darly:///test');
 ok( $ref, 'Create actor reference' );
 

@@ -276,9 +276,9 @@ sub actor_request {
 
         return $f;
     } else {
-        my @result = actor_dispatch( $recipient, $sender, $event, $args );
-        $code->( @result ) if $code;
-        return @result;
+        @_ = actor_dispatch( $recipient, $sender, $event, $args );
+        goto $code if $code;
+        return @_;
     }
 }
 

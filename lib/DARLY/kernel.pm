@@ -212,14 +212,24 @@ sub actor_shutdown {
 sub actor_dispatch {
     my ($recipient, $sender, $event, $args) = @_;
 
-    my $code = $recipient->[META][EVENT]{$event};
+    my $default = 0;
+    my $code    = $recipient->[META][EVENT]{$event};
+    if(!defined $code && defined ($code=$recipient->[META][EVENT]{default})) {
+        $default = 1;
+    }
+
     DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
-    $sender = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
-    $recipient = $recipient->[OBJECT];
+    $sender     =    $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
+    $recipient  = $recipient->[OBJECT];
 
-    return $code->( $recipient, $sender, defined $args ? @$args : () );
+    if(!$default) {
+        return $code->( $recipient, $sender,         defined $args ? @$args : () );
+    }
+    else {
+        return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
+    }
 }
 
 sub actor_send {

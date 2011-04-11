@@ -69,7 +69,7 @@ sub init {
     # Start listening if need
     for my $addr (@{$opt{'listen'}||[]} ) {
         push @{$KERNEL->{'server'}}, tcp_server( $addr->[0], $addr->[1] => \&node_connect );
-        DEBUG && warn "Listen $addr->[0]:$addr->[1]\n";
+        DEBUG && warn "Listen " . ($addr->[0]||'*') . ":$addr->[1]\n";
     }
 
 

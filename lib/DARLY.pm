@@ -40,8 +40,12 @@ sub init(%) {
 
     # Process 'listen' option
     if ( exists $opt{'listen'} ) {
+        croak "Can't listen '$opt{listen}': bad address"
+            if ref $opt{'listen'} && ref $opt{'listen'} ne 'ARRAY';
+
         my %addr;
-        if ( ref $opt{'listen'} eq 'ARRAY' ) {
+
+        if ( ref $opt{'listen'} ) {
             for my $addr ( @{$opt{'listen'}} ) {
                 my ($host,$port) = parse_hostport $addr;
                 croak "Can't listen '$addr': bad address" if !defined $host;
@@ -50,6 +54,7 @@ sub init(%) {
         } else {
             $addr{':'} = [ undef, ${DARLY::kernel::DEFAULT_PORT} ];
         }
+
         $opt{'listen'} = [ values %addr ];
     }
 

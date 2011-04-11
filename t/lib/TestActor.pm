@@ -13,23 +13,22 @@ event 'foo' => sub {
 };
 
 event 'bar' => sub {
-    shift;
     $testvar = $_[0];
 };
 
 event 'echo' => sub {
-    splice @_, 0, 2;
+    shift;
     return @_;
 };
 
 event 'delayed_echo' => sub {
-    my ($self, $sender, $delay, $arg) = @_;
+    my ($self, $delay, $arg) = @_;
     my ($t,$f); $t = AE::timer $delay, 0, $f = future { undef $t; return $arg };
     return $f;
 };
 
 event 'proxy_echo' => sub {
-    my ($self, $sender, $arg) = @_;
+    my ($self, $arg) = @_;
     return $self->request( undef, 'echo', [ $arg ]);
 };
 

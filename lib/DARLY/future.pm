@@ -52,13 +52,13 @@ sub DESTROY {
 }
 
 sub result {
-    my $self = shift; shift; # sender
+    my $self = shift;
     my $inner = $INNER{refaddr $self};
     _fire( $inner, 'result', @_ );
 }
 
 sub error {
-    my $self = shift;  shift; # sender
+    my $self = shift;
     my $inner = $INNER{refaddr $self};
     local $@ = $_[-1];
     _fire( $inner, 'error', @_ );

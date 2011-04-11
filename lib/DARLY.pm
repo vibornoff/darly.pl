@@ -13,6 +13,8 @@ use DARLY::error;
 use strict;
 use warnings;
 
+our $Sender;
+
 our $LastError;
 our $LastErrorMessage;
 
@@ -24,6 +26,7 @@ sub import {
     #*{"$caller\::topic"} = *topic;
     *{"$caller\::event"} = *event;
     *{"$caller\::future"} = *future;
+    *{"$caller\::sender"} = *sender;
 
     push @{"$caller\::ISA"}, 'DARLY::actor'
         if !$caller->isa('DARLY::actor');
@@ -34,6 +37,7 @@ sub import {
 #sub topic($)    { }
 sub event($;&)  { goto \&DARLY::kernel::meta_event }
 sub future(;&)  { unshift @_, 'DARLY::future'; goto \&DARLY::future::new }
+sub sender()    { $Sender }
 
 sub init(%) {
     my %opt = @_;
@@ -147,6 +151,14 @@ Future object can be returned from event handler saying that there is no immedia
 available result, but that result would be available later.
 
 C<future> is exported when DARLY is C<use>'ed.
+
+=head2 sender
+
+When calling from the event handler callback, returns current message sender.
+Returns C<undef> when calling outside of the event handler callback or when
+there is no sender associated with the message.
+
+C<sender> is exported when DARLY is C<use>'ed.
 
 =head2 init( %options )
 

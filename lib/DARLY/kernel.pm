@@ -219,7 +219,8 @@ sub actor_dispatch {
     $sender = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
     $recipient = $recipient->[OBJECT];
 
-    return $code->( $recipient, $sender, defined $args ? @$args : () );
+    local ${DARLY::Sender} = $sender;
+    return $code->( $recipient, defined $args ? @$args : () );
 }
 
 sub actor_send {

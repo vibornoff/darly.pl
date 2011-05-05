@@ -12,6 +12,7 @@ use List::Util qw( first );
 use DARLY::actor;
 use DARLY::future;
 use DARLY::error;
+use DARLY::protocol;
 
 use strict;
 use warnings;
@@ -47,7 +48,7 @@ use constant REFS   => 4;
 # Kernel stuff
 Readonly::Scalar our $KERNEL_ID         => 0;
 Readonly::Scalar our $DEFAULT_PORT      => 12345;
-Readonly::Scalar our $DEFAULT_PROTOCOL  => 'json';
+Readonly::Scalar our $DEFAULT_PROTOCOL  => 'DARLY::protocol::JSON';
 Readonly::Scalar our $MAX_MSG_SIZE      => 65536;   # 64 KiB
 Readonly::Scalar our $MAX_BUF_SIZE      => 2**20;   # 1 MiB
 my ($KERNEL, $LOOP);
@@ -431,16 +432,18 @@ sub node_read {
 # Kernel's actor event handlers
 ###############################################################################
 
-sub kernel_result {
-    splice @_, 0, 2;
-    DEBUG && warn "Got result: @_";
-}
-
 sub kernel_error {
-    splice @_, 0, 2;
+    shift;
     ${DARLY::LastError} = $_[0];
     ${DARLY::LastErrorMessage} = $_[1];
     DEBUG && warn "Got error: $_[0]: $_[1]";
+    return;
+}
+
+sub kernel_echo {
+    shift;
+    DEBUG && warn "Echo: @_";
+    return @_;
 }
 
 ###############################################################################
@@ -456,8 +459,8 @@ BEGIN {
     }];
 
     $META{'DARLY::kernel'} = [ 'DARLY::kernel', {
-        result  => \&kernel_result,
         error   => \&kernel_error,
+        echo    => \&kernel_echo,
     }];
 }
 

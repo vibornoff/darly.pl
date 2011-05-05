@@ -23,6 +23,9 @@ if ( @ARGV > 0 ) {
     do $script;
 }
 
+$opt{'listen'} = 1 if ref $opt{'listen'} && @{$opt{'listen'}} == 1
+                                         && $opt{'listen'}[0] eq '';
+
 DARLY::run(%opt);
 
 exit 0;

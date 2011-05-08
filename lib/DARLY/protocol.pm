@@ -42,7 +42,7 @@ sub anyevent_write_type {
     $message = encode_json $message
         if ref $message;
 
-    $message . "\n";
+    $message . DEFAULT_DELIMITER;
 }
 
 1;

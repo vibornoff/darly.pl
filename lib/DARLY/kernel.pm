@@ -225,7 +225,7 @@ sub actor_dispatch {
     $recipient  = $recipient->[OBJECT];
 
     if(!$default) {
-        return $code->( $recipient, $sender,         defined $args ? @$args : () );
+        return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
     }
     else {
         return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
@@ -431,14 +431,14 @@ sub node_read {
 
 sub kernel_result {
     DEBUG && do {
-        my (undef, $result) = @_;
+        my (undef, $event, $result) = @_;
         warn "Got result from foreign node: $result";
     }
 }
 
 sub kernel_error {
     DEBUG && do {
-        my (undef, $error) = @_;
+        my (undef, $event, $error) = @_;
         warn "Got error from foreign node: $error";
     }
 }

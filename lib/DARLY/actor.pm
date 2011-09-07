@@ -47,8 +47,8 @@ sub spawn {
     my ($self,$alias) = @_;
     croak "Alias '$alias' is empty" if defined $alias && !length $alias;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
-    my $actor = DARLY::kernel::actor_spawn(ref $self, $self, undef);
-    DARLY::kernel::actor_alias($actor, $alias) if $alias;
+    my $actor = DARLY::kernel::actor_spawn( ref $self, $self, undef );
+    DARLY::kernel::actor_alias( $actor, $alias ) if $alias;
     return $self;
 }
 
@@ -56,7 +56,7 @@ sub reference {
     my ($self,$url) = @_;
     croak "Url '$url' is empty" if defined $url && !length $url;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
-    DARLY::kernel::actor_spawn(ref $self, $self, URI->new($url));
+    DARLY::kernel::actor_spawn( ref $self, $self, URI->new($url) );
     return $self;
 }
 
@@ -92,8 +92,9 @@ sub send {
     croak "Recipient required" if !defined $rcpt;
     my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
                     ? DARLY::kernel::actor_get($rcpt)
-                    : DARLY::kernel::actor_spawn( 'DARLY::actor', DARLY::actor->new(), URI->new($rcpt) );
-    croak "Can't request event to non-spawned actor '$rcpt'"
+                    : DARLY::kernel::actor_ref( 'DARLY::actor', URI->new($rcpt) );
+
+    croak "Can't request event to non-spawned local actor '$rcpt'"
         unless defined $recipient;
 
     croak "Event required" if !defined $event || !length $event;
@@ -114,8 +115,9 @@ sub request {
     croak "Recipient required" if !defined $rcpt;
     my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
                     ? DARLY::kernel::actor_get($rcpt)
-                    : DARLY::kernel::actor_spawn( 'DARLY::actor', DARLY::actor->new(), URI->new($rcpt) );
-    croak "Can't request event to non-spawned actor '$rcpt'"
+                    : DARLY::kernel::actor_ref( 'DARLY::actor', URI->new($rcpt) );
+
+    croak "Can't request event to non-spawned local actor '$rcpt'"
         unless defined $recipient;
 
     croak "Event required" if !defined $event || !length $event;

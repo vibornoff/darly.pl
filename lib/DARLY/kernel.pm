@@ -254,19 +254,6 @@ sub actor_send {
 
     if ( my $url = $recipient->[URL] ) {
         my $h = node_handle($url); my $ha = refaddr $h;
-
-        # XXX perl magic workaround
-        if(rand(1000) < 1) {
-            if(length($h->{wbuf}) == 0) {
-                delete $h->{wbuf};
-                $h->{wbuf} = '';
-            }
-            else {
-                my $wbuf   = delete $h->{wbuf};
-                $h->{wbuf} = $wbuf;
-            }
-        }
-
         $sender = $sender->[ALIAS] || refaddr $sender->[OBJECT];
         $recipient = substr( $url->path, 1 );
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);

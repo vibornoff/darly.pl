@@ -20,14 +20,14 @@ use warnings;
 use constant DEBUG => $ENV{DARLY_DEBUG} || 0;
 
 # Actor class meta
-my %META;
+our %META;
 # Meta members
 use constant CLASS  => 0;
 use constant EVENT  => 1;
 #use constant TOPIC  => 2;
 
 # Actors and aliases
-my (%ACTOR,%ALIAS);
+our (%ACTOR,%ALIAS);
 # Actor members
 use constant META   => 0;
 use constant URL    => 1;
@@ -36,7 +36,7 @@ use constant ALIAS  => 3;
 #use constant SUBS   => 4;
 
 # Active handles and connected nodes
-my (%HANDLE,%NODE);
+our (%HANDLE,%NODE);
 # Handle struct members
 use constant HANDLE => 0;
 #use constant URL    => 1; #already defined

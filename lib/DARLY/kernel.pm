@@ -360,8 +360,8 @@ sub node_disconnect {
     delete $NODE{$authority}{refaddr $handle};
     delete $NODE{$authority} if !keys %{$NODE{$authority}};
 
-    actor_dispatch( $_, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
-        for grep { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
+    actor_dispatch( $_, $ACTOR{$KERNEL_ID}, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
+        for map { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
 
     $handle->destroy();
 

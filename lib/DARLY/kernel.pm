@@ -133,6 +133,14 @@ sub meta_event {
 # Actor-related stuff
 ###############################################################################
 
+sub actor_ref {
+    my ($class, $url) = @_;
+
+    my $actor = [ $META{$class} || $META{'DARLY::actor'}, $url, undef, undef ];
+
+    return $actor;
+}
+
 sub actor_spawn {
     my ($class, $obj, $url) = @_;
 
@@ -204,6 +212,8 @@ sub actor_shutdown {
         delete $ALIAS{$alias} if !keys %{$ALIAS{$alias}};
         # TODO Update upstream;
     }
+
+    delete $ACTOR{refaddr $obj};
 
     DEBUG && warn "Shutdown actor $obj";
 

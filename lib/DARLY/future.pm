@@ -14,12 +14,15 @@ use constant CB => 1;
 my %INNER;
 
 sub _fire {
-    my ($inner,$event) = splice @_, 0, 2;
+    my ($inner, $event) = splice @_, 0, 2;
 
     if ( $inner->[CB] ) {
         my $err = $@;
         @_ = eval { local $@ = $err; $inner->[CB]->(@_) };
-        @_ = ( 'Error', $@ ) if $@;
+        if ( $err = $@ ) {
+            $event = 'error';
+            @_ = ( 'Error', $@ );
+        }
     }
 
     $inner->[CV]->send( $event, \@_ );
@@ -60,8 +63,8 @@ sub result {
 sub error {
     my $self = shift;
     my $inner = $INNER{refaddr $self};
-    local $@ = $_[-1];
-    _fire( $inner, 'error', @_ );
+    local $@ = DARLY::error->new(@_);
+    _fire( $inner, 'error' );
 }
 
 sub cv {

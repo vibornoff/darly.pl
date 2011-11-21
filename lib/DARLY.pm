@@ -1,6 +1,6 @@
 package DARLY;
 
-our $VERSION = '0.16';
+our $VERSION = '1.00';
 
 use Carp;
 use AnyEvent::Socket;
@@ -24,18 +24,22 @@ sub import {
 
     no strict 'refs';
     #*{"$caller\::topic"} = *topic;
-    *{"$caller\::event"} = *event;
+    *{"$caller\::on"}     = *on;
     *{"$caller\::future"} = *future;
     *{"$caller\::sender"} = *sender;
 
     push @{"$caller\::ISA"}, 'DARLY::actor'
         if !$caller->isa('DARLY::actor');
 
+    my $caller_ref = $caller . '_ref';
+    push @{"$caller_ref\::ISA"}, $caller
+        if !$caller_ref->isa($caller);
+
     DARLY::kernel::meta_extend($caller);
 }
 
 #sub topic($)    { }
-sub event($;&)  { goto \&DARLY::kernel::meta_event }
+sub on($;&)     { goto \&DARLY::kernel::meta_on }
 sub future(;&)  { unshift @_, 'DARLY::future'; goto \&DARLY::future::new }
 sub sender()    { $Sender }
 
@@ -93,14 +97,14 @@ DARLY - Distributed Actor Runtime Library
  
  topic 'history';
  
- event 'say' => sub {
+ on 'say' => sub {
     my ($chat,$who,$phrase) = @_;
     my $entry = [ time, $who, $phrase ];
     push @{$chat->{entries}}, $entry;
     $chat->notify( 'history', $entry );
  };
  
- event 'get_history' => sub {
+ on 'get_history' => sub {
     my ($chat,$lines) = @_;
     return [ @{$chat->{entries}}[ -$lines .. -1 ] ];
  };
@@ -136,13 +140,13 @@ TODO Write about Actor Model.
 
 =head1 METHODS
 
-=head2 event $name [, \&handler ]
+=head2 on $event [, \&handler ]
 
-Declare new event with a name C<$name> and an optional handler callback C<\&handler>
-in the caller's package. Events are can be either notified by C<send> method
+Declare new handler for a message C<$event> and an optional callback C<\&handler>
+in the caller's package. Messages are can be either notified by C<send> method
 or requested by C<request> method of an L<actor|DARLY::actor> object.
 
-C<event> is exported when DARLY is C<use>'ed.
+C<on> is exported when DARLY is C<use>'ed.
 
 =head2 future [ \&callback ]
 
@@ -154,7 +158,7 @@ C<future> is exported when DARLY is C<use>'ed.
 
 =head2 sender
 
-When calling from the event handler callback, returns current message sender.
+When calling from the message handler callback, returns current message sender.
 Returns C<undef> when calling outside of the event handler callback or when
 there is no sender associated with the message.
 

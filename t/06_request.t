@@ -29,7 +29,7 @@ if ( ref $@ && $@->[0] eq 'DispatchError' ) {
 
 my @res = $actor->request( undef, 'echo', [qw( 1 2 3 )], sub { reverse @_ });
 ok( @res > 0, "Request 'echo' event on actor with result filtering" );
-is( join('',@res), '321', "Got expected filtered result" );
+is( "@res", '3 2 1', "Got expected filtered result" );
 
 my $ref = TestActor->reference('darly:///test');
 ok( $ref, 'Create actor reference' );
@@ -49,6 +49,21 @@ $test = "Request 'echo' event handler on far actor reference";
 $f = $farref->request( undef, 'echo', [ 'qwer' ], sub {
     fail $test unless @_ > 0;
     is( $_[0], 'qwer', $test );
+});
+ok( $f->cv->recv(), "Wait for response" );
+
+$test = "Request non-existent event hahdler on far actor reference";
+$f = $farref->request( undef, 'zap', [], sub {
+    if ( ref $@ && $@->[0] eq 'DispatchError' ) {
+        pass("$test: got DispatchError");
+    } else {
+        fail("$test: DispatchError is expected");
+    }
+    if ( @_ == 0 ) {
+        pass("$test: \@_ is empty");
+    } else {
+        fail("$test: \@_ expected to be empty");
+    }
 });
 ok( $f->cv->recv(), "Wait for response" );
 

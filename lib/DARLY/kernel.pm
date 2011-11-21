@@ -113,14 +113,14 @@ sub meta_extend {
     $META{$class} //= [ $class, { %{$META{$super}[EVENT]} }];
 }
 
-sub meta_event {
+sub meta_on {
     my ($class, $event, $code) = (
         ( $_[0]->isa('DARLY::actor')
             ? () : (caller)[0] ),
         @_,
     );
 
-    croak "Class required to define event in"
+    croak "Class required to define event handler in"
         if !defined $class;
 
     $META{$class}[EVENT]{$event} = $code;
@@ -292,15 +292,25 @@ sub actor_request {
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender, $fa ]);
 
         return $f;
-    } else {
-        @_ = eval {
-            @_ = actor_dispatch( $recipient, $sender, $event, $args );
-            return $code ? $code->(@_) : @_;
-        };
-        if ( my $error = $@ ) {
+    }
+    else {
+        my $error;
+        @_ = eval { actor_dispatch( $recipient, $sender, $event, $args ) };
+        if ( $error = $@ ) {
             DEBUG && warn $error;
+        }
+        if ( $code ) {
+            $error = DARLY::error->new( 'DispatchError', "Error dispatching event '$event' to the actor '$recipient'", $error ) if $error;
+            @_ = eval { local $@ = $error; $code->(@_) };
+            if ( $error = $@ ) {
+                DEBUG && warn $error;
+            } else {
+                undef $error;
+            }
+        }
+        if ( $error ) {
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
-            kernel_error( $KERNEL, undef, @{$error}[0..1] );
+            kernel_error( $KERNEL, undef, @{$error}[0..1] ) if $error;
         }
         return @_;
     }

@@ -14,15 +14,18 @@ use overload (
 );
 
 sub new {
-    my ($class, $error, $message) = @_;
+    my ($class, $error, $message, $file, $line) = @_;
     $class = ref $class || $class;
     $error ||= 'Error';
     $message ||= '';
-    bless [ $error, $message, (caller)[1..2] ], $class;
+    ($file, $line) = (caller)[1..2] if !$file || !$line;
+    bless [ $error, $message, $file, $line ], $class;
 }
 
 sub throw {
-    die shift->new(@_);
+    my ($class, $error, $message, $file, $line) = splice @_, 0, 5;
+    ($file, $line) = (caller)[1..2] if !$file || !$line;
+    die $class->new($error, $message, $file, $line, @_);
 }
 
 sub stringify {

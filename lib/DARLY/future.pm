@@ -1,5 +1,6 @@
 package DARLY::future;
 use base 'DARLY::actor';
+use DARLY::error;
 
 use Carp;
 use AnyEvent;
@@ -17,9 +18,13 @@ sub _fire {
     my ($inner,$event) = splice @_, 0, 2;
 
     if ( $inner->[CB] ) {
-        my $err = $@;
-        @_ = eval { local $@ = $err; $inner->[CB]->(@_) };
-        @_ = ( 'Error', $@ ) if $@;
+        my $error = $@;
+        @_ = eval { local $@ = $error; $inner->[CB]->(@_) };
+        if ($@) {
+            $error = $@;
+            @_ = ( !ref $error || reftype $error ne 'ARRAY' )
+                ? ( 'Error', "$error" ) : @$error;
+        }
     }
 
     $inner->[CV]->send( $event, \@_ );
@@ -60,7 +65,7 @@ sub result {
 sub error {
     my ($self, undef, undef) = splice @_, 0, 3; # sender && event
     my $inner = $INNER{refaddr $self};
-    local $@ = $_[-1];
+    local $@ = ( @_ > 1 ) ? DARLY::error->new(@_) : $_[-1];
     _fire( $inner, 'error', @_ );
 }
 

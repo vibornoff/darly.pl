@@ -442,9 +442,9 @@ sub node_read {
 
         if ($@) {
             my $error = $@;
-            DEBUG && warn $error;        
+            DEBUG && warn $error;
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ @{$error}[0..1] ]]);
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
         }
     });
 }

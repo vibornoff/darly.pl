@@ -442,7 +442,7 @@ sub node_read {
 
         if ($@) {
             my $error = $@;
-            DEBUG && warn $error;
+            warn "DARLY event $event from $sender error $error";
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
         }

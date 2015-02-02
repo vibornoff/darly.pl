@@ -18,12 +18,20 @@ $f = future;
 ok( $f, "Create naked future object" );
 ok ( $f = 1, "Dereference naked future object" );
 
-my ($t,$r,$v);
-$t = AE::timer 3, 0, $f = future { 3 };
-ok ( $f, "Create delayed future object" );
-$f->cv->cb( sub { @_ = shift->recv; $r = $_[0]; $v = $_[1][0]; });
-ok ( $f->cv->recv,  "Wait future for 3 sec" );
-is ( "$r$v", 'result3', "Got right result and value from future" );
+my ($t,$r);
+$t = AE::timer 1, 0, $f = future { 1 };
+ok ( $f, "Create 1sec-delayed future object" );
+$f->cv->cb( sub { @_ = shift->recv; $r = $_[0]; });
+ok ( $f->cv->recv,  "Wait for delayed future" );
+is ( "$r", '1', "Got right result and value from the future" );
+
+$t = AE::timer 2, 0, $f = future { 2 };
+ok ( $f, "Create 2sec-delayed future object" );
+( my $f2 = future )->($f);
+ok( $f2, "Create proxy future object" );
+$f2->cv->cb( sub { @_ = shift->recv; $r = $_[0]; } );
+ok ( $f2->cv->recv,  "Wait on proxy future" );
+is ( "$r", '2', "Got right result and value from the proxy future" );
 
 # TODO call future as coderef
 

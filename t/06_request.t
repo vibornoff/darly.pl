@@ -73,7 +73,7 @@ ok( $ref->request( undef, 'check_context', []), "Request 'check_context' event o
 is( ${TestActor::testvar}, 1, "Context is list" );
 
 $test = "Request 'check_context' event on far actor reference";
-$f = $farref->request( undef, 'check_context', [], sub { fail $test if $@ || !@_ });
+$f = $farref->request( undef, 'check_context', [], sub { fail $test && die $test if $@; @_ });
 ok( $f->cv->recv(), "Wait for response" );
 is( ${TestActor::testvar}, 1, "Context is list" );
 

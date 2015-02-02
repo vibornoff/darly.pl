@@ -15,19 +15,37 @@ use constant CB => 1;
 my %INNER;
 
 sub _fire {
-    my ($inner,$event) = splice @_, 0, 2;
+    my $inner = shift;
 
     if ( $inner->[CB] ) {
         my $error = $@;
         @_ = eval { local $@ = $error; $inner->[CB]->(@_) };
         if ($@) {
             $error = $@;
-            @_ = ( !ref $error || reftype $error ne 'ARRAY' )
-                ? ( 'Error', "$error" ) : @$error;
+            return $inner->[CV]->croak( ( !ref $error || reftype $error ne 'ARRAY' ) ? ( 'Error', "$error" ) : @$error );
         }
     }
 
-    $inner->[CV]->send( $event, \@_ );
+    my @result = map { [ $_ ] } @_;
+
+    $inner->[CV]->begin( sub {
+        shift->send( map { @$_ } @result );
+    });
+
+    for my $i ( 0 .. $#result ) {
+        my $r = $result[$i][0];
+        next if !ref $r || !blessed $r || !$r->isa(__PACKAGE__);
+        $inner->[CV]->begin();
+        $r->cv->cb( sub {
+            eval { $result[$i] = [ shift->recv ] };
+            return $inner->[CV]->croak($@) if $@;
+            $inner->[CV]->end();
+        });
+    }
+
+    $inner->[CV]->end();
+
+    return;
 }
 
 sub new {
@@ -38,7 +56,7 @@ sub new {
         if ref $cb && reftype $cb ne 'CODE';
 
     my $inner = [ AE::cv(), $cb ];
-    my $self = bless sub { _fire( $inner, 'result', @_ ) }, $class;
+    my $self = bless sub { _fire( $inner, @_ ) }, $class;
     $INNER{refaddr $self} = $inner;
 
     return $self;
@@ -59,14 +77,15 @@ sub DESTROY {
 sub result {
     my ($self, undef, undef) = splice @_, 0, 3; # sender && event
     my $inner = $INNER{refaddr $self};
-    _fire( $inner, 'result', @_ );
+    local $@ = '';
+    _fire( $inner, @_ );
 }
 
 sub error {
     my ($self, undef, undef) = splice @_, 0, 3; # sender && event
     my $inner = $INNER{refaddr $self};
     local $@ = ( @_ > 1 ) ? DARLY::error->new(@_) : $_[-1];
-    _fire( $inner, 'error', @_ );
+    _fire( $inner, @_ );
 }
 
 sub cv {

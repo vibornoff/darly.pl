@@ -374,6 +374,8 @@ sub node_disconnect {
     delete $NODE{$authority}{refaddr $handle};
     delete $NODE{$authority} if !keys %{$NODE{$authority}};
 
+    utf8::decode($message) if defined $message;
+
     actor_dispatch( $_, $ACTOR{$KERNEL_ID}, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
         for map { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
 
@@ -423,19 +425,20 @@ sub node_read {
         eval {
             $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
             if ( defined $responder ) {
-                my @result = actor_dispatch( $recipient, $sender_url, $event, $args );
-                if ( ref $result[0] && blessed $result[0] && $result[0]->isa('DARLY::future') ) {
-                    my $ha = refaddr $h;
-                    my $ra = refaddr $result[0];
-                    $HANDLE{$ha}[REFS]{$ra} = $result[0];
-                    $result[0]->cv->cb( sub {
-                        $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, ( $_[0]->recv )]);
-                        delete $HANDLE{$ha}[REFS]{$ra};
-                    });
-                } else {
-                    $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ]);
-                }
-            } else {
+                my $f = 'DARLY::future'->spawn();
+
+                my $ha = refaddr $h;
+                my $fa = refaddr $f;
+                $HANDLE{$ha}[REFS]{$fa} = $f;
+
+                $f->cv->cb( sub {
+                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', ( shift->recv ) ] );
+                    delete $HANDLE{$ha}[REFS]{$fa};
+                });
+
+                $f->( actor_dispatch( $recipient, $sender_url, $event, $args ) );
+            }
+            else {
                 actor_dispatch( $recipient, $sender_url, $event, $args );
             }
         };

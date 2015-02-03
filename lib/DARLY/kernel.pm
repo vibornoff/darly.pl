@@ -432,7 +432,7 @@ sub node_read {
                 $HANDLE{$ha}[REFS]{$fa} = $f;
 
                 $f->cv->cb( sub {
-                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', ( shift->recv ) ] );
+                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', [ shift->recv ] ] );
                     delete $HANDLE{$ha}[REFS]{$fa};
                 });
 

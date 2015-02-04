@@ -141,10 +141,11 @@ sub actor_ref {
 }
 
 sub actor_spawn {
-    my ($class, $obj, $url) = @_;
+    my ($class, $obj, $url, $alias) = @_;
 
-    my $actor = [ $META{$class} || $META{'DARLY::actor'}, $url, $obj, undef ];
+    my $actor = [ $META{$class} || $META{'DARLY::actor'}, $url, $obj, $alias ];
     $ACTOR{refaddr $obj} = $actor;
+    $ALIAS{$alias}{refaddr $obj} = $obj if defined $alias;
     weaken $actor->[OBJECT];
 
     DEBUG && warn "Spawn new actor $obj";

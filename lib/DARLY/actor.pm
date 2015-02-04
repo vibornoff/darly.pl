@@ -31,24 +31,23 @@ sub stringify {
     my $self = shift;
     return $self unless ref $self;
 
-    my $actor = DARLY::kernel::actor_get($self);
-    return $self unless defined $actor;
-
-    if ( my $url = DARLY::kernel::actor_url($actor) ) {
-        return "$url";
-    } elsif ( my $alias = DARLY::kernel::actor_alias($actor) ) {
-        return 'darly:///' . $alias . ( DEBUG ? '#' . blessed($self) : '' );
-    } else {
-        return 'darly:///' . refaddr($self) . ( DEBUG ? '#' . blessed($self) : '' );
+    if ( defined( my $actor = DARLY::kernel::actor_get($self) ) ) {
+        if ( defined( my $url = DARLY::kernel::actor_url($actor) ) ) {
+            return "$url";
+        }
+        elsif ( defined( my $alias = DARLY::kernel::actor_alias($actor) ) ) {
+            return 'darly:///' . $alias . ( DEBUG ? '#' . blessed($self) : '' );
+        }
     }
+
+    return 'darly:///' . refaddr($self) . ( DEBUG ? '#' . blessed($self) : '' );
 }
 
 sub spawn {
     my ($self,$alias) = @_;
     croak "Alias '$alias' is empty" if defined $alias && !length $alias;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
-    my $actor = DARLY::kernel::actor_spawn( ref $self, $self, undef );
-    DARLY::kernel::actor_alias( $actor, $alias ) if $alias;
+    my $actor = DARLY::kernel::actor_spawn( ref $self, $self, undef, $alias );
     return $self;
 }
 
@@ -56,7 +55,7 @@ sub reference {
     my ($self,$url) = @_;
     croak "Url '$url' is empty" if defined $url && !length $url;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
-    DARLY::kernel::actor_spawn( ref $self, $self, URI->new($url) );
+    DARLY::kernel::actor_spawn( ref $self, $self, URI->new($url), undef );
     return $self;
 }
 

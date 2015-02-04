@@ -423,33 +423,40 @@ sub node_read {
             $sender_url->path("/$sender");
         }
 
-        eval {
-            $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
-            if ( defined $responder ) {
-                my $f = 'DARLY::future'->spawn();
+        $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
 
-                my $ha = refaddr $h;
-                my $fa = refaddr $f;
-                $HANDLE{$ha}[REFS]{$fa} = $f;
+        my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
 
-                $f->cv->cb( sub {
-                    $HANDLE{$ha}[HANDLE]->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', [ shift->recv ] ] );
-                    delete $HANDLE{$ha}[REFS]{$fa};
-                });
-
-                $f->( actor_dispatch( $recipient, $sender_url, $event, $args ) );
-            }
-            else {
-                actor_dispatch( $recipient, $sender_url, $event, $args );
-            }
-        };
-
-        if ($@) {
-            my $error = $@;
-            warn "DARLY event $event from $sender error $error";
+        if ( my $error = $@ ) {
+            warn "DARLY event $event from $sender_url error $error";
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
         }
+
+        return unless defined $responder;
+
+        my $r = 'DARLY::future'->spawn();
+        my $ha = refaddr $h;
+        my $ra = refaddr $r;
+        $HANDLE{$ha}[REFS]{$ra} = $r;
+
+        $r->cv->cb( sub {
+            return unless defined $HANDLE{$ha};
+            delete $HANDLE{$ha}[REFS]{$ra};
+
+            @result = eval { shift->recv };
+
+            if ( my $error = $@ ) {
+                warn "DARLY event $event from $sender_url error $error";
+                $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
+            }
+            else {
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'result', \@result ] );
+            }
+        });
+
+        $r->(@result);
     });
 }
 

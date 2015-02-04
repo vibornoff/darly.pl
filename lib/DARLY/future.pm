@@ -68,10 +68,8 @@ sub DESTROY {
 
     $self->shutdown();
 
-    unless ( $inner->[CV]->ready ) {
-        $inner->[CB]->() if $inner->[CB];
-        $inner->[CV]->send();
-    }
+    my $cv = $inner && $inner->[CV];
+    $cv->croak('DESTROY') if defined $cv && !$cv->ready;
 }
 
 sub result {

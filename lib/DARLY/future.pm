@@ -4,7 +4,7 @@ use DARLY::error;
 
 use Carp;
 use AnyEvent;
-use Scalar::Util qw( refaddr reftype );
+use Scalar::Util qw( blessed refaddr reftype );
 
 use strict;
 use warnings;

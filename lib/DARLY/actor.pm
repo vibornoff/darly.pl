@@ -85,7 +85,7 @@ sub send {
     $rcpt //= $self;
 
     my $sender = DARLY::kernel::actor_get($self);
-    croak "Can't call method 'request' on non-spawned actor"
+    croak "Can't call method 'send' on non-spawned actor"
         unless defined $sender;
 
     croak "Recipient required" if !defined $rcpt;
@@ -93,7 +93,7 @@ sub send {
                     ? DARLY::kernel::actor_get($rcpt)
                     : DARLY::kernel::actor_ref( 'DARLY::actor', URI->new($rcpt) );
 
-    croak "Can't request event to non-spawned local actor '$rcpt'"
+    croak "Can't send event to non-spawned local actor '$rcpt'"
         unless defined $recipient;
 
     croak "Event required" if !defined $event || !length $event;

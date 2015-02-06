@@ -235,12 +235,7 @@ sub actor_dispatch {
     $sender     =    $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
     $recipient  = $recipient->[OBJECT];
 
-    if(!$default) {
-        return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
-    }
-    else {
-        return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
-    }
+    return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
 }
 
 sub actor_send {

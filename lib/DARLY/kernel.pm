@@ -69,7 +69,7 @@ sub init {
     # Start listening if need
     for my $addr (@{$opt{'listen'}||[]} ) {
         push @{$KERNEL->{'server'}}, tcp_server( $addr->[0], $addr->[1] => \&node_connect );
-        DEBUG && warn "Listen $addr->[0]:$addr->[1]\n";
+        DEBUG && warn "Listen " . ( $addr->[0] || '*' ) . ":$addr->[1]\n";
     }
 
 
@@ -223,12 +223,7 @@ sub actor_shutdown {
 sub actor_dispatch {
     my ($recipient, $sender, $event, $args) = @_;
 
-    my $default = 0;
-    my $code    = $recipient->[META][EVENT]{$event};
-    if(!defined $code && defined ($code=$recipient->[META][EVENT]{default})) {
-        $default = 1;
-    }
-
+    my $code    = $recipient->[META][EVENT]{$event} // $recipient->[META][EVENT]{default};
     DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 

@@ -436,12 +436,12 @@ sub node_read {
 
         return unless defined $responder;
 
-        my $r = 'DARLY::future'->spawn();
+        my $r = AE::cv();
         my $ha = refaddr $h;
         my $ra = refaddr $r;
         $HANDLE{$ha}[REFS]{$ra} = $r;
 
-        $r->cv->cb( sub {
+        $r->cb( sub {
             return unless defined $HANDLE{$ha};
             delete $HANDLE{$ha}[REFS]{$ra};
 
@@ -457,7 +457,7 @@ sub node_read {
             }
         });
 
-        $r->(@result);
+        DARLY::future::_resolve( $r, @result );
     });
 }
 

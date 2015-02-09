@@ -31,7 +31,7 @@ event 'delayed_echo' => sub {
 
 event 'proxy_echo' => sub {
     my ($self, $sender, $event, $arg) = @_;
-    return $self->request( undef, 'echo', [ $arg ]);
+    return $self->request( $self, 'echo', [ $arg ]);
 };
 
 event 'check_context' => sub {

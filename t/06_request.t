@@ -56,11 +56,12 @@ $f = $farref->request( undef, 'echo', [ 'qwer' ], sub {
 ok( $f->cv->recv(), "Wait for response" );
 
 $test = "Request 'proxy_echo' event handler on far actor reference";
-$f = $farref->request( undef, 'proxy_echo', [ 'asdf' ], sub {
+$f = $ref->request( undef, 'proxy_echo', [ 'asdf' ], sub {
     fail $test unless @_ > 0;
     is( $_[0], 'asdf', $test );
+    return @_;
 });
-ok( $f->cv->recv(), "Wait for response" );
+is( $f->cv->recv(), 'asdf', "Wait for response" );
 
 $test = "Request 'delayed_echo' event handler on far actor reference";
 $f = $farref->request( undef, 'delayed_echo', [ 3, 'zxcv' ], sub {

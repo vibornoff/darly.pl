@@ -18,13 +18,16 @@ is( ${TestActor::testvar}, 'blah', "\$testvar got right value" );
 ok( $actor->send( undef, 'bar', [ ]), "Send 'bar' event to actor" );
 is( ${TestActor::testvar}, $actor, "\$testvar got right value" );
 
-my $test = "Send to non-existent event hahdler";
-eval { $actor->send( undef, 'zap', [] ) };
-$test .= $@ ? ": $@" : '';
-if ( ref $@ && $@->[0] eq 'DispatchError' ) {
-    pass($test);
-} else {
-    fail($test);
+{
+    my $test = "Send to non-existent event hahdler";
+    my $warn = '';
+    local $SIG{__WARN__} = sub { $warn .= "$_[0]\n" };
+    $actor->send( undef, 'zap', [] );
+    if ( $warn =~ /DispatchError/ ) {
+        pass($test);
+    } else {
+        fail($test);
+    }
 }
 
 my $ref = TestActor->reference('darly:///test');

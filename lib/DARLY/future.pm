@@ -17,14 +17,15 @@ my %INNER;
 sub _fire {
     my $inner = shift;
 
+    my $error = $@;
+
     if ( $inner->[CB] ) {
-        my $error = $@;
         @_ = eval { local $@ = $error; $inner->[CB]->(@_) };
-        if ($@) {
-            $error = $@;
-            return $inner->[CV]->croak( ( !ref $error || reftype $error ne 'ARRAY' ) ? ( 'Error', "$error" ) : @$error );
-        }
+        $error = $@;
     }
+
+    return $inner->[CV]->croak( ( !ref $error || reftype $error ne 'ARRAY' ) ? ( 'Error', "$error" ) : @$error )
+        if $error;
 
     my @result = map { [ $_ ] } @_;
 
@@ -56,7 +57,7 @@ sub new {
         if ref $cb && reftype $cb ne 'CODE';
 
     my $inner = [ AE::cv(), $cb ];
-    my $self = bless sub { _fire( $inner, @_ ) }, $class;
+    my $self = bless sub { local $@; _fire( $inner, @_ ) }, $class;
     $INNER{refaddr $self} = $inner;
 
     return $self;
@@ -74,8 +75,8 @@ sub DESTROY {
 
 sub result {
     my ($self, undef, undef) = splice @_, 0, 3; # sender && event
-    my $inner = $INNER{refaddr $self};
-    local $@ = '';
+    my $inner = delete $INNER{refaddr $self};
+    local $@;
     _fire( $inner, @_ );
 }
 

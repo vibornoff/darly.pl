@@ -262,8 +262,11 @@ sub actor_send {
         $sender = $sender->[ALIAS] || refaddr $sender->[OBJECT];
         $recipient = substr( $url->path, 1 );
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);
-    } else {
-        actor_dispatch( $recipient, $sender, $event, $args );
+    }
+    else {
+        local $@;
+        eval { actor_dispatch( $recipient, $sender, $event, $args ) };
+        warn "DARLY dispatch_event '$event' from '$sender' failed: $@" if $@;
     }
 
     return '0 but true';
@@ -288,6 +291,7 @@ sub actor_request {
         $f = 'DARLY::future'->spawn( undef, sub {
                 delete $HANDLE{$ha}[REFS]{$fa};
                 goto $code if $code;
+                die $@ if $@;
                 return @_;
             });
         $fa = refaddr $f;
@@ -300,10 +304,17 @@ sub actor_request {
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender, $fa ]);
 
         return $f;
-    } else {
-        @_ = actor_dispatch( $recipient, $sender, $event, $args );
-        goto $code if $code;
-        return @_;
+    }
+    else {
+        my $f = 'DARLY::future'->spawn( undef, $code );
+        my @result = eval { actor_dispatch( $recipient, $sender, $event, $args ) };
+        if ( my $error = $@ ) {
+            warn "DARLY dispatch_event '$event' from '$sender' failed: $error";
+            $f->error( (undef) x 2, $error );
+        } else {
+            $f->(@result);
+        }
+        return $f;
     }
 }
 
@@ -418,7 +429,7 @@ sub node_read {
         my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
 
         if ( my $error = $@ ) {
-            warn "DARLY event $event from $sender_url error $error";
+            warn "DARLY dispatch_event '$event' from '$sender_url' failed: $error";
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
         }
@@ -437,7 +448,7 @@ sub node_read {
             @result = eval { shift->recv };
 
             if ( my $error = $@ ) {
-                warn "DARLY event $event from $sender_url error $error";
+                warn "DARLY dispatch_event '$event' from '$sender_url' failed: $error";
                 $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
                 $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
             }

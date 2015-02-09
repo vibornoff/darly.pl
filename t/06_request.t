@@ -18,18 +18,21 @@ is( ${TestActor::testvar}, 'blah', "\$testvar got right value" );
 ok( $actor->request( undef, 'bar', [ ]), "Request 'bar' event on actor" );
 is( ${TestActor::testvar}, $actor, "\$testvar got right value" );
 
-my $test = "Request non-existent event hahdler on actor";
-eval { $actor->request( undef, 'zap', [] ) };
-$test .= $@ ? ": $@" : '';
-if ( ref $@ && $@->[0] eq 'DispatchError' ) {
-    pass($test);
-} else {
-    fail($test);
+{
+    my $test = "Request non-existent event hahdler on actor";
+    my $warn = '';
+    local $SIG{__WARN__} = sub { $warn .= "$_[0]\n" };
+    $actor->request( undef, 'zap', [] );
+    if ( $warn =~ /DispatchError/ ) {
+        pass($test);
+    } else {
+        fail($test);
+    }
 }
 
-my @res = $actor->request( undef, 'echo', [qw( 1 2 3 )], sub { reverse @_ });
-ok( @res > 0, "Request 'echo' event on actor with result filtering" );
-is( join('',@res), '321', "Got expected filtered result" );
+my $res = $actor->request( undef, 'echo', [qw( 1 2 3 )], sub { reverse @_ });
+ok( $res, "Request 'echo' event on actor with result filtering" );
+is( join('', $res->cv->recv), '321', "Got expected filtered result" );
 
 my $ref = TestActor->reference('darly:///test');
 ok( $ref, 'Create actor reference' );
@@ -45,7 +48,7 @@ ok( $f, "Request 'foo' event on far actor reference" );
 ok( $f->cv->recv(), "Wait for response" );
 is( ${TestActor::testvar}, 'poof!', "\$testvar got right value" );
 
-$test = "Request 'echo' event handler on far actor reference";
+my $test = "Request 'echo' event handler on far actor reference";
 $f = $farref->request( undef, 'echo', [ 'qwer' ], sub {
     fail $test unless @_ > 0;
     is( $_[0], 'qwer', $test );

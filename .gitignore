@@ -5,6 +5,7 @@ Build
 Build.bat
 META.yml
 MYMETA.yml
+MYMETA.json
 Makefile
 _build/
 blib/

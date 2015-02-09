@@ -207,6 +207,8 @@ sub actor_shutdown {
     my $obj = $actor->[OBJECT];
     return unless defined $obj;
 
+    DEBUG && warn "Shutdown actor $obj";
+
     if ( my $alias = $actor->[ALIAS] ) {
         delete $ALIAS{$alias}{refaddr $obj};
         delete $ALIAS{$alias} if !keys %{$ALIAS{$alias}};
@@ -214,8 +216,6 @@ sub actor_shutdown {
     }
 
     delete $ACTOR{refaddr $obj};
-
-    DEBUG && warn "Shutdown actor $obj";
 
     return '0 but true';
 }
@@ -266,7 +266,7 @@ sub actor_send {
     else {
         local $@;
         eval { actor_dispatch( $recipient, $sender, $event, $args ) };
-        warn "DARLY dispatch_event '$event' from '$sender' failed: $@" if $@;
+        warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender->[OBJECT]' failed: $@" if $@;
     }
 
     return '0 but true';
@@ -309,7 +309,7 @@ sub actor_request {
         my $f = 'DARLY::future'->spawn( undef, $code );
         my @result = eval { actor_dispatch( $recipient, $sender, $event, $args ) };
         if ( my $error = $@ ) {
-            warn "DARLY dispatch_event '$event' from '$sender' failed: $error";
+            warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender->[OBJECT]' failed: $error";
             $f->error( (undef) x 2, $error );
         } else {
             $f->(@result);
@@ -429,7 +429,7 @@ sub node_read {
         my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
 
         if ( my $error = $@ ) {
-            warn "DARLY dispatch_event '$event' from '$sender_url' failed: $error";
+            warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";
             $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
             $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
         }
@@ -448,7 +448,7 @@ sub node_read {
             @result = eval { shift->recv };
 
             if ( my $error = $@ ) {
-                warn "DARLY dispatch_event '$event' from '$sender_url' failed: $error";
+                warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";
                 $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
                 $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
             }

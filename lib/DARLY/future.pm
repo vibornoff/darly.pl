@@ -42,7 +42,7 @@ sub _fire {
 
     if ( $inner->[CB] ) {
         my @args = map { [ $_ ] } @_;
-        my $error;
+        my $error = $@;
 
         $inner->[CV]->begin( sub {
             return unless defined $inner;
@@ -67,6 +67,7 @@ sub _fire {
         $inner->[CV]->end();
     }
     else {
+        return $inner->[CV]->croak($@) if $@;
         _resolve( $inner->[CV], @_ );
     }
 }

@@ -426,7 +426,12 @@ sub node_read {
 
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
 
-        my @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+        my @result;
+        if ( defined $responder ) {
+            @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+        } else {
+            eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+        }
 
         if ( my $error = $@ ) {
             warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";

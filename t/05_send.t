@@ -45,12 +45,18 @@ DARLY::loop();
 is( ${TestActor::testvar}, 'poof!', "\$testvar got right value" );
 
 ok( $actor->send( undef, 'check_context', []), "Send 'check_context' event to actor" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" );
+DARLY::loop();
 is( ${TestActor::testvar}, undef, "Context is void" );
 
 ok( $ref->send( undef, 'check_context', []), "Send 'check_context' event to actor reference" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" );
+DARLY::loop();
 is( ${TestActor::testvar}, undef, "Context is void" );
 
 ok( $farref->send( undef, 'check_context', []), "Send 'check_context' event to far actor reference" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" );
+DARLY::loop();
 is( ${TestActor::testvar}, undef, "Context is void" );
 
 done_testing();

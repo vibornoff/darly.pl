@@ -89,9 +89,16 @@ sub send {
         unless defined $sender;
 
     croak "Recipient required" if !defined $rcpt;
-    my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
-                    ? DARLY::kernel::actor_get($rcpt)
-                    : DARLY::kernel::actor_ref( 'DARLY::actor', URI->new($rcpt) );
+
+    $rcpt = URI->new($rcpt) unless blessed $rcpt;
+
+    my $recipient;
+    if( $rcpt->isa('DARLY::actor' ) ) {
+        $recipient = DARLY::kernel::actor_get($rcpt);
+    }
+    else {
+        $recipient = DARLY::kernel::actor_ref( 'DARLY::actor', $rcpt );
+    }
 
     croak "Can't send event to non-spawned local actor '$rcpt'"
         unless defined $recipient;

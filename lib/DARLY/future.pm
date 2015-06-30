@@ -47,7 +47,7 @@ sub _fire {
         $inner->[CV]->begin( sub {
             return unless defined $inner;
             my $cv = shift;
-            my @result = eval { local $@ = $error; $inner->[CB]->( $error ? () : map { @$_ } @args ) };
+            my @result = eval { $@ = $error; $inner->[CB]->( $error ? () : map { @$_ } @args ) };
             return $cv->croak($@) if $@;
             _resolve( $cv, @result );
         });

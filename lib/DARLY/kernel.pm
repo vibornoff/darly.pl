@@ -221,16 +221,37 @@ sub actor_shutdown {
 }
 
 sub actor_dispatch {
-    my ($recipient, $sender, $event, $args) = @_;
+    my ($recipient, $sender, $event, @args) = @_;
 
-    my $code    = $recipient->[META][EVENT]{$event} // $recipient->[META][EVENT]{default};
+    my $before_code = $recipient->[META][EVENT]{"__before_$event"} // $recipient->[META][EVENT]{__before};
+    my $code        = $recipient->[META][EVENT]{$event}            // $recipient->[META][EVENT]{__default};
+    my $after_code  = $recipient->[META][EVENT]{"__after_$event"}  // $recipient->[META][EVENT]{__after};
+
     DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: No handler for event '$event'" )
         if !defined $code || ( ref $code && reftype $code ne 'CODE' );
 
-    $sender     =    $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
-    $recipient  = $recipient->[OBJECT];
+    $recipient      = $recipient->[OBJECT];
+    $sender         = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
+    @args           = @{$args[0]} if @args == 1 && reftype $args[0] eq 'ARRAY';
 
-    return $code->( $recipient, $sender, $event, defined $args ? @$args : () );
+    if ( defined $before_code ) {
+        eval { $before_code->( $recipient, $sender, $event, @args ) };
+        warn "DARLY dispatch_event '_before_$event' to '$recipient' from '$sender' failed: $@" if $@;
+    }
+
+    my @res;
+    if ( defined wantarray ) {
+        @res = $code->( $recipient, $sender, $event, @args )
+    } else {
+        $code->( $recipient, $sender, $event, @args );
+    }
+
+    if ( defined $after_code ) {
+        eval { $after_code->( $recipient, $sender, $event, @args ) };
+        warn "DARLY dispatch_event '_after_$event' to '$recipient' from '$sender' failed: $@" if $@;
+    }
+
+    return @res;
 }
 
 sub actor_send {
@@ -264,7 +285,6 @@ sub actor_send {
         $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);
     }
     else {
-        local $@;
         eval { actor_dispatch( $recipient, $sender, $event, $args ) };
         warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender->[OBJECT]' failed: $@" if $@;
     }

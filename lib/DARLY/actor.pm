@@ -81,8 +81,9 @@ sub url {
 }
 
 sub send {
-    my ($self, $rcpt, $event, $args) = @_;
-    $rcpt //= $self;
+    my ($self, $rcpt, $event) = splice @_, 0, 3;
+    my $args = @_ > 0 ? shift : [];
+    $rcpt  //= $self;
 
     my $sender = DARLY::kernel::actor_get($self);
     croak "Can't call method 'send' on non-spawned actor"
@@ -105,8 +106,10 @@ sub send {
 }
 
 sub request {
-    my ($self, $rcpt, $event, $args, $cb) = @_;
-    $rcpt //= $self;
+    my ($self, $rcpt, $event) = splice @_, 0, 3;
+    my $args = @_ > 0 ? shift : [];
+    my $cb   = shift;
+    $rcpt  //= $self;
 
     my $sender = DARLY::kernel::actor_get($self);
     croak "Can't call method 'request' on non-spawned actor"

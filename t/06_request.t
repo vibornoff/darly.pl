@@ -34,6 +34,11 @@ my $res = $actor->request( undef, 'echo', [qw( 1 2 3 )], sub { reverse @_ });
 ok( $res, "Request 'echo' event on actor with result filtering" );
 is( join('', $res->cv->recv), '321', "Got expected filtered result" );
 
+my $res_undef = $actor->request( undef, 'echo' );
+ok( $res_undef, "Request 'echo' event on actor without parameters" );
+$res_undef->cv->recv;
+is_deeply( $TestActor::testvar, [], "Got expected [] inside echo" );
+
 my $ref = TestActor->reference('darly:///test');
 ok( $ref, 'Create actor reference' );
 

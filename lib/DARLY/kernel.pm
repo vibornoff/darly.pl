@@ -232,7 +232,7 @@ sub actor_dispatch {
 
     $recipient      = $recipient->[OBJECT];
     $sender         = $sender->[OBJECT] if ref $sender && reftype $sender eq 'ARRAY';
-    @args           = @{$args[0]} if @args == 1 && reftype $args[0] eq 'ARRAY';
+    @args           = @{$args[0]}       if @args == 1 && ref $args[0] && reftype $args[0] eq 'ARRAY';
 
     if ( defined $before_code ) {
         eval { $before_code->( $recipient, $sender, $event, @args ) };

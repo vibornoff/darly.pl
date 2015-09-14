@@ -20,6 +20,7 @@ event 'bar' => sub {
 
 event 'echo' => sub {
     splice @_, 0, 3;
+    $testvar = [@_];
     return @_;
 };
 

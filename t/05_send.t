@@ -59,4 +59,34 @@ ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" 
 DARLY::loop();
 is( ${TestActor::testvar}, undef, "Context is void" );
 
+ok( $farref->send( undef, 'echo', []), "Send []" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye' event to far actor reference" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, [], "Empty array received after send []" );
+
+ok( $farref->send( undef, 'echo'), "Send without parameters" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye'" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, [], "Empty array received after send without parameters" );
+
+ok( $farref->send( undef, 'echo', undef), "Send with undef" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye'" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, [undef], "Received [undef]" );
+
+ok( $farref->send( undef, 'echo', [undef]), "Send [undef]" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye'" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, [undef], "Received [undef]" );
+
+ok( $farref->send( undef, 'echo', '0E0'), "Send with 0E0" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye'" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, ['0E0'], "Received [0E0]" );
+
+ok( $farref->send( undef, 'echo', '0'), "Send with 0" );
+ok( $farref->send( undef, 'bye', []), "Send 'bye'" );
+DARLY::loop();
+is_deeply( ${TestActor::testvar}, [0], "Received [0]" );
+
 done_testing();

@@ -12,6 +12,10 @@ use warnings;
 # Turn debug tracing on/off
 use constant DEBUG => $ENV{DARLY_DEBUG} || 0;
 
+# Partial import constants
+use constant URL    => &DARLY::kernel::URL;
+use constant OBJECT => &DARLY::kernel::OBJECT;
+
 use overload (
     '""' => \&stringify,
     fallback => 1,
@@ -45,7 +49,7 @@ sub stringify {
 
 sub spawn {
     my ($self,$alias) = @_;
-    croak "Alias '$alias' is empty" if defined $alias && !length $alias;
+    croak "Alias is empty" if defined $alias && !length $alias;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
     my $actor = DARLY::kernel::actor_spawn( ref $self, $self, undef, $alias );
     return $self;
@@ -53,10 +57,30 @@ sub spawn {
 
 sub reference {
     my ($self,$url) = @_;
-    croak "Url '$url' is empty" if defined $url && !length $url;
+    croak "Url is empty" if defined $url && !length $url;
     $self = $self->new( @_[2..$#_] ) unless ref $self;
     DARLY::kernel::actor_spawn( ref $self, $self, URI->new($url), undef );
     return $self;
+}
+
+sub resolve {
+    my ($self,$what) = @_;
+    $what //= $self;
+
+    croak "Argument required" if !ref $what && !length $what;
+
+    $what = URI->new($what) if !blessed $what;
+    my $ra = $what->isa('DARLY::actor') ? DARLY::kernel::actor_get($what)
+                                        : DARLY::kernel::actor_ref(undef, $what);
+    return if !defined $ra;
+
+    while ( defined $ra->[URL] && !$ra->[URL]->authority ) {
+        my $rn = DARLY::kernel::actor_resolve( substr($ra->[URL]->path, 1) );
+        return if !defined $rn;
+        $ra = $rn;
+    }
+
+    return $ra->[OBJECT];
 }
 
 sub shutdown {
@@ -83,26 +107,44 @@ sub url {
 sub send {
     my ($self, $rcpt, $event) = splice @_, 0, 3;
     my $args = @_ > 0 ? shift : [];
-    $rcpt  //= $self;
 
     my $sender = DARLY::kernel::actor_get($self);
     croak "Can't call method 'send' on non-spawned actor"
-        unless defined $sender;
-
-    croak "Recipient required" if !defined $rcpt;
-
-    $rcpt = URI->new($rcpt) unless blessed $rcpt;
-    my $recipient = $rcpt->isa('DARLY::actor' ) ? DARLY::kernel::actor_get($rcpt)
-                                                : DARLY::kernel::actor_ref( 'DARLY::actor', $rcpt );
-
-    croak "Can't send event to non-spawned local actor '$rcpt'"
-        unless defined $recipient;
+        if !defined $sender;
 
     croak "Event required" if !defined $event || !length $event;
 
     $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
 
-    return DARLY::kernel::actor_send( $sender, $recipient, $event, $args );
+    $rcpt = [ $rcpt ] if ref $rcpt ne 'ARRAY';
+
+    my %hash;
+    R: for my $r ( @$rcpt ) {
+        $r //= $self;
+        $r   = URI->new($r) if !blessed $r;
+
+        my $ra = $r->isa('DARLY::actor') ? DARLY::kernel::actor_get($r)
+                                         : DARLY::kernel::actor_ref(undef, $r);
+        if ( !defined $ra ) {
+            warn "Can't send '$event' event to a non-spawned local actor '$r'";
+            next R;
+        }
+
+        while ( defined $ra->[URL] && !$ra->[URL]->authority ) {
+            my $rr = DARLY::kernel::actor_resolve( substr($ra->[URL]->path, 1) );
+            if ( !defined $rr ) {
+                warn "Can't send '$event' event to a non-resolvable local actor '$r'";
+                next R;
+            }
+            $ra = $rr;
+        }
+
+        my ($key, $subkey) = ( '', refaddr $ra );
+        ($key, $subkey) = ( $ra->[URL]->scheme.'://'.$ra->[URL]->authority, substr($ra->[URL]->path, 1) ) if defined $ra->[URL];
+        $hash{$key}{$subkey} = $ra;
+    }
+
+    return DARLY::kernel::actor_send( $sender, \%hash, $event, $args );
 }
 
 sub request {
@@ -118,10 +160,17 @@ sub request {
     croak "Recipient required" if !defined $rcpt;
     my $recipient = ( ref $rcpt && blessed $rcpt && $rcpt->isa('DARLY::actor') )
                     ? DARLY::kernel::actor_get($rcpt)
-                    : DARLY::kernel::actor_ref( 'DARLY::actor', URI->new($rcpt) );
+                    : DARLY::kernel::actor_ref( undef, URI->new($rcpt) );
 
     croak "Can't request event to non-spawned local actor '$rcpt'"
         unless defined $recipient;
+
+    while ( defined $recipient->[URL] && !$recipient->[URL]->authority ) {
+        my $next = DARLY::kernel::actor_resolve( substr($recipient->[URL]->path, 1) );
+        DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
+            unless defined $next;
+        $recipient = $next;
+    }
 
     croak "Event required" if !defined $event || !length $event;
 

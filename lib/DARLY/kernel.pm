@@ -9,10 +9,6 @@ use AnyEvent::Socket;
 use Scalar::Util qw( blessed refaddr reftype weaken );
 use List::Util qw( first );
 
-use DARLY::actor;
-use DARLY::future;
-use DARLY::error;
-
 use strict;
 use warnings;
 
@@ -51,6 +47,10 @@ Readonly::Scalar our $DEFAULT_PROTOCOL  => 'json';
 Readonly::Scalar our $MAX_MSG_SIZE      => 65536;   # 64 KiB
 Readonly::Scalar our $MAX_BUF_SIZE      => 2**20;   # 1 MiB
 my ($KERNEL, $LOOP);
+
+use DARLY::actor;
+use DARLY::future;
+use DARLY::error;
 
 sub init {
     my %opt = @_;
@@ -135,7 +135,7 @@ sub meta_event {
 sub actor_ref {
     my ($class, $url) = @_;
 
-    my $actor = [ $META{$class} || $META{'DARLY::actor'}, $url, undef, undef ];
+    my $actor = [ $META{$class || 'DARLY::actor'} || $META{'DARLY::actor'}, $url, undef, undef ];
 
     return $actor;
 }
@@ -257,36 +257,20 @@ sub actor_dispatch {
 sub actor_send {
     my ($sender, $recipient, $event, $args) = @_;
 
-    while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
-        my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
-            unless defined $next;
-        $recipient = $next;
-    }
+    $recipient = { ( $recipient->[URL] || '' ) => { substr( $recipient->[URL]->path, 1 ) => $recipient } } if ref $recipient ne 'HASH';
 
-    if ( my $url = $recipient->[URL] ) {
-        my $h = node_handle($url); my $ha = refaddr $h;
-
-        # XXX perl magic workaround is back
-        if(rand() < 0.0001) {
-            my $buf    = $h->{wbuf};
-            undef        $h->{wbuf};
-            $h->{wbuf} = $buf;
-
-            $buf       = $h->{rbuf};
-            undef        $h->{rbuf};
-            $h->{rbuf} = $buf;
-
-            undef        $buf;
+    while ( my ($key,$subhash) = each %$recipient ) {
+        if ( length $key ) {
+            my $h = node_handle(URI->new($key)); my $ha = refaddr $h;
+            my $r = (1 == keys %$subhash) ? (keys %$subhash)[0] : [ keys %$subhash ];
+            $h->push_write( $KERNEL->{'protocol'} => [ $r, $event, $args, $sender->[ALIAS] || refaddr $sender->[OBJECT] ]);
         }
-
-        $sender = $sender->[ALIAS] || refaddr $sender->[OBJECT];
-        $recipient = substr( $url->path, 1 );
-        $h->push_write( $KERNEL->{'protocol'} => [ $recipient, $event, $args, $sender ]);
-    }
-    else {
-        eval { actor_dispatch( $recipient, $sender, $event, $args ) };
-        warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender->[OBJECT]' failed: $@" if $@;
+        else {
+            for my $r ( values %$subhash ) {
+                eval { actor_dispatch( $r, $sender, $event, $args ) };
+                warn "DARLY dispatch_event '$event' to '$r->[OBJECT]' from '$sender->[OBJECT]' failed: $@" if $@;
+            }
+        }
     }
 
     return '0 but true';
@@ -295,14 +279,7 @@ sub actor_send {
 sub actor_request {
     my ($sender, $recipient, $event, $args, $code) = @_;
 
-    while ( $recipient->[URL] && !$recipient->[URL]->authority ) {
-        my $next = actor_resolve( substr( $recipient->[URL]->path, 1 ) );
-        DARLY::error->throw( 'DispatchError', "$recipient->[OBJECT]: can't resolve to local actor" )
-            unless defined $next;
-        $recipient = $next;
-    }
-
-    if ( my $url = $recipient->[URL] ) {
+    if ( defined( my $url = $recipient->[URL] ) ) {
         my ($h, $ha, $f, $fa);
 
         $h = node_handle($url);
@@ -346,7 +323,7 @@ sub node_handle {
     my $url = shift;
     my $handle;
 
-    my $authority = $url->authority;
+    my $authority = $url->authority || '';
     if ( $NODE{$authority} && keys %{$NODE{$authority}} ) {
         $handle = (values %{$NODE{$authority}})[0][HANDLE];
     } else {
@@ -360,6 +337,19 @@ sub node_handle {
         $HANDLE{refaddr $handle} =
         $NODE{$authority}{refaddr $handle} =
             [ $handle, $url, 0, 0, {} ];
+    }
+
+    # XXX perl magic workaround is back
+    if(rand() < 0.0001) {
+        my $buf = $handle->{wbuf};
+        undef $handle->{wbuf};
+        $handle->{wbuf} = $buf;
+
+        $buf = $handle->{rbuf};
+        undef $handle->{rbuf};
+        $handle->{rbuf} = $buf;
+
+        undef $buf;
     }
 
     return $handle;
@@ -398,8 +388,8 @@ sub node_disconnect {
 
     utf8::decode($message) if defined $message;
 
-    actor_dispatch( $_, $ACTOR{$KERNEL_ID}, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ])
-        for map { $ACTOR{refaddr $_} } values %{$entry->[REFS]};
+    actor_dispatch( $_, $ACTOR{$KERNEL_ID}, 'error', [ 'IOError', "Node disconnected" . ( $message ? ": $message" : '' ) ] )
+        for map { $ACTOR{refaddr $_} } grep { ref $_ && $_->isa('DARLY::actor') } values %{$entry->[REFS]};
 
     $handle->destroy();
 
@@ -430,10 +420,21 @@ sub node_read {
             return;
         }
 
-        my $recipient = actor_resolve($dest);
-        if ( !defined $recipient ) {
-            DEBUG && warn "No such actor '$dest'";
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ 'DispatchError', "No such actor '$dest'" ]]);
+        my @recipients;
+        $dest = [ $dest ] if ref $dest ne 'ARRAY';
+        for my $d ( @$dest ) {
+            my $r = actor_resolve($d);
+            if ( !defined $r ) {
+                DEBUG && warn "No such actor '$d'";
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ 'DispatchError', "No such actor '$d'" ]])
+                    if !defined $responder;
+                next;
+            }
+            push @recipients, $r;
+        }
+        if ( @recipients != 1 && defined $responder ) {
+            DEBUG && warn "Requested actor not found";
+            $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ 'DispatchError', "Actor not found" ] ] );
             return;
         }
 
@@ -447,16 +448,17 @@ sub node_read {
         $args = [ $args ] if defined $args && ( !ref $args || reftype $args ne 'ARRAY' );
 
         my @result;
-        if ( defined $responder ) {
-            @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
-        } else {
-            eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
-        }
-
-        if ( my $error = $@ ) {
-            warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";
-            $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
-            $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
+        for my $recipient ( @recipients ) {
+            if ( defined $responder ) {
+                @result = eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+            } else {
+                eval { actor_dispatch( $recipient, $sender_url, $event, $args ) };
+            }
+            if ( my $error = $@ ) {
+                warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";
+                $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
+                $h->push_write( $KERNEL->{'protocol'} => [ $responder || $KERNEL_ID, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
+            }
         }
 
         return unless defined $responder;
@@ -473,7 +475,7 @@ sub node_read {
             @result = eval { shift->recv };
 
             if ( my $error = $@ ) {
-                warn "DARLY dispatch_event '$event' to '$recipient->[OBJECT]' from '$sender_url' failed: $error";
+                warn "DARLY dispatch_event '$event' to '$recipients[0][OBJECT]' from '$sender_url' failed: $error";
                 $error = [ 'Error', "$error" ] if !ref $error || reftype $error ne 'ARRAY';
                 $h->push_write( $KERNEL->{'protocol'} => [ $responder, 'error', [ DEBUG ? @$error : @{$error}[0..1] ] ]);
             }
